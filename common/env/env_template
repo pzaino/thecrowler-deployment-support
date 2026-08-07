@@ -1,8 +1,21 @@
 # CROWler version to "docker pull"
+#CROWLER_VERSION=2.0.3
 CROWLER_VERSION=latest
 
 # CROWler VDI version to "docker pull"
 #CROWLER_VDI_VERSION=4.28.1-20260807
 CROWLER_VDI_VERSION=latest
 
+# The name of the CROwler-DB container
+DOCKER_DB_HOST='crowler-db'
 
+# The postgres user's pwd
+DOCKER_POSTGRES_PASSWORD=''
+
+# The crowler user's name (a non-privileged PostgreSQL user)
+DOCKER_CROWLER_DB_USER='crowler'
+
+# The crowler user's pwd
+DOCKER_CROWLER_DB_PASSWORD=''
+
+# other .end variables that may be used by scripts and rules:
