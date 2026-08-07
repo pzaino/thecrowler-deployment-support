@@ -1,6 +1,6 @@
 ---
 name: deploy-kubernetes
-description: Deploy, configure, scale, validate, inspect, or troubleshoot The CROWler using the raw Kubernetes manifests in this repository. Use for Kubernetes namespaces, ConfigMaps, Secrets, StatefulSets, Deployments, Services, VDI routing, PostgreSQL persistence, resource limits, probes, scaling, and workload troubleshooting. Do not use when the user specifically wants the Helm chart.
+description: Deploy, configure, scale, validate, inspect, or troubleshoot The CROWler using the raw Kubernetes manifests in this repository. Use for namespaces, ConfigMaps, Secrets, StatefulSets, Deployments, Services, VDI routing, PostgreSQL persistence, resource limits, probes, scaling, config rollouts, and workload troubleshooting. Do not use when the user specifically wants the Helm chart.
 compatibility: Requires thecrowler-deployment-support, kubectl, and access to a Kubernetes cluster.
 metadata:
   project: thecrowler
@@ -34,57 +34,56 @@ Do not silently choose local versus remote `config.yaml`.
 
 ## Runtime Config
 
-Create Kubernetes ConfigMap `crowler-config` from the deployment-level
-`config.yaml`.
+Create ConfigMap `crowler-config` from `config.yaml`.
 
-Engine, API, and Events must mount:
+Engine, API, and Events mount it at `/app/config.yaml`.
 
-`/app/config.yaml`
-
-Do not mount that ConfigMap into DB, VDI, Jaeger, or Pushgateway.
+Because the file is mounted through `subPath`, a ConfigMap update requires
+restarting Engine, API, and Events.
 
 ## Secrets
 
-Use Kubernetes Secret `crowler-secrets` for database credentials.
+Use Secret `crowler-secrets`.
 
-Never commit the generated Secret.
+Required baseline keys:
+
+```text
+DOCKER_POSTGRES_PASSWORD
+DOCKER_CROWLER_DB_USER
+DOCKER_CROWLER_DB_PASSWORD
+SEL_PASSWD
+```
+
+Restart consumers after changing Secret-backed environment variables.
 
 ## Topology
 
-The base architecture uses:
+Use:
 
 * PostgreSQL StatefulSet
-* VDI Deployment + ClusterIP Service
+* `crowler-db-headless` governing Service
+* `crowler-db` client ClusterIP Service
+* VDI Deployment + ClientIP-affinity Service
 * Engine Deployment
 * API Deployment + Service
 * Events Deployment + Service
 * optional Jaeger and Pushgateway
 
-The VDI Service uses `ClientIP` session affinity. Do not reintroduce Compose
-ordinal-based Engine-to-VDI hostnames.
+Raw VDI tracing is disabled until Jaeger is enabled.
 
 ## Validate
 
-Use client-side Kubernetes validation before applying.
-
-Then inspect:
-
-```text
-Pods
-Deployments
-StatefulSets
-Services
-PVCs
-ConfigMaps
-Secrets
+```bash
+kubectl apply --dry-run=client -R -f kubernetes/base/
 ```
 
-Do not claim health from YAML validation alone.
+Then inspect Pods, Deployments, StatefulSets, Services, PVCs, ConfigMaps, and
+Secrets.
 
 ## Safety
 
 Do not expose internal management services publicly by default.
 
-Do not delete PostgreSQL PVCs as a routine troubleshooting step.
+Do not delete PostgreSQL PVCs as routine troubleshooting.
 
 Do not replace official images with local builds.

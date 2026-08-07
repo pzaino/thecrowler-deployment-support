@@ -2,8 +2,6 @@
 
 ## Namespace
 
-Default:
-
 ```text
 crowler
 ```
@@ -22,31 +20,44 @@ Key:
 config.yaml
 ```
 
-Mounted into Engine, API, and Events at:
+Mounted with `subPath` at:
 
 ```text
 /app/config.yaml
 ```
 
-## Secret
+ConfigMap updates therefore require rollout restart of Engine, API, and Events.
 
-Default Secret:
+## Secret
 
 ```text
 crowler-secrets
 ```
 
-Required keys:
+Baseline keys:
 
 ```text
 DOCKER_POSTGRES_PASSWORD
 DOCKER_CROWLER_DB_USER
 DOCKER_CROWLER_DB_PASSWORD
+SEL_PASSWD
 ```
 
-## VDI Routing
+## PostgreSQL Services
 
-Service:
+Governing StatefulSet Service:
+
+```text
+crowler-db-headless
+```
+
+Application client endpoint:
+
+```text
+crowler-db:5432
+```
+
+## VDI
 
 ```text
 crowler-vdi:4444
@@ -58,33 +69,10 @@ Session affinity:
 ClientIP
 ```
 
-This gives each Engine pod stable backend affinity without explicit VDI pod
-numbering.
+Raw VDI tracing defaults to disabled because Jaeger is optional.
 
 ## Persistence
 
-Bundled PostgreSQL uses a StatefulSet and a `ReadWriteOnce` PVC.
+PostgreSQL uses a `ReadWriteOnce` PVC.
 
 Raw API, Events, and Engine `/app/data` use `emptyDir`.
-
-## Images
-
-```text
-zfpsystems/crowler-db
-zfpsystems/crowler-engine
-zfpsystems/crowler-vdi
-zfpsystems/crowler-api
-zfpsystems/crowler-events
-```
-
-## Internal Services
-
-```text
-crowler-db:5432
-crowler-vdi:4444
-crowler-api:8080
-crowler-events:8082
-crowler-jaeger:16686
-crowler-jaeger:4317
-crowler-push-gateway:9091
-```

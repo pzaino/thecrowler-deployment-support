@@ -7,7 +7,7 @@ metadata:
     app.kubernetes.io/name: crowler-db
     app.kubernetes.io/part-of: thecrowler
 spec:
-  serviceName: crowler-db
+  serviceName: crowler-db-headless
   replicas: 1
   selector:
     matchLabels:
@@ -21,7 +21,7 @@ spec:
       automountServiceAccountToken: false
       containers:
         - name: crowler-db
-          image: zfpsystems/crowler-db:latest
+          image: zfpsystems/crowler-db:2.0.3
           imagePullPolicy: Always
           ports:
             - name: postgres

@@ -83,6 +83,7 @@ The default Kubernetes topology uses:
 * a ConfigMap for CROWler `config.yaml`
 * a Secret for sensitive deployment values
 * a VDI Service with `ClientIP` session affinity for stable Selenium routing
+* a headless Service governing the PostgreSQL StatefulSet
 * an in-memory `emptyDir` mounted at `/dev/shm` for VDI
 
 Do not expose PostgreSQL, Selenium, VNC, noVNC, Chrome DevTools, Jaeger, or
@@ -97,6 +98,8 @@ Do not make Helm behavior diverge from the raw Kubernetes model without
 documenting the difference.
 
 Prefer existing Kubernetes Secrets and ConfigMaps in production.
+
+Helm resources must be release-scoped so multiple releases can coexist in one namespace.
 
 ## Validation
 
@@ -115,7 +118,7 @@ docker stack config -c docker-compose.yml
 Kubernetes:
 
 ```bash
-kubectl apply --dry-run=client -f kubernetes/base/
+kubectl apply --dry-run=client -R -f kubernetes/base/
 ```
 
 Validate component directories separately when the client cannot recursively

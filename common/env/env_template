@@ -18,5 +18,8 @@ DOCKER_CROWLER_DB_USER='crowler'
 # The CROWler database user password
 DOCKER_CROWLER_DB_PASSWORD=''
 
+# Selenium/VDI password. Set this before Kubernetes or Helm deployment.
+SEL_PASSWD=''
+
 # Other .env variables may be added as required by CROWler configuration,
 # plugins, rules, mail connectors, proxies, telemetry, and integrations.

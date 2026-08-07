@@ -1,7 +1,7 @@
 ---
 name: deploy-helm
-description: Install, configure, upgrade, validate, inspect, or troubleshoot The CROWler Helm chart in helm/thecrowler. Use for Helm values, CROWler image versions, replicas, bundled or external PostgreSQL, ConfigMap and Secret selection, storage, resources, scheduling, optional telemetry components, upgrades, and uninstall workflows.
-compatibility: Requires thecrowler-deployment-support, Helm 3+, kubectl, and access to a Kubernetes cluster.
+description: Install, configure, upgrade, validate, inspect, or troubleshoot The CROWler Helm chart in helm/thecrowler. Use for Helm values, image versions, replicas, bundled or external PostgreSQL, ConfigMap and Secret selection, config/secret rollouts, storage, resources, scheduling, telemetry, multi-release deployments, upgrades, and uninstall workflows.
+compatibility: Requires thecrowler-deployment-support, Helm 3 or 4, kubectl, and access to a Kubernetes cluster.
 metadata:
   project: thecrowler
   repository: pzaino/thecrowler-deployment-support
@@ -24,55 +24,65 @@ Inspect:
 
 ## Architecture
 
-Helm packages the same architecture as the raw Kubernetes manifests.
+Helm packages the raw Kubernetes architecture.
 
-Do not create a second, divergent topology.
+Resources are release-prefixed and carry
+`app.kubernetes.io/instance=<release>` so multiple CROWler releases can
+coexist in one namespace.
 
 ## Runtime Config
 
-Production deployments should normally use an existing ConfigMap named
-`crowler-config`.
+Production should normally use an existing ConfigMap.
 
-Chart-managed config is supported with:
+Chart-managed config:
 
 ```text
 config.create=true
-config.content=<config.yaml contents>
+config.content=<config.yaml>
 ```
 
-Never invent a CROWler config.
+Chart-managed config changes automatically roll Engine/API/Events.
+
+For externally managed ConfigMaps, use `config.rolloutToken` or explicitly
+restart the three Deployments after changing the ConfigMap.
 
 ## Secrets
 
-Production deployments should normally use an existing Secret named
-`crowler-secrets`.
+Baseline Secret keys:
 
-Chart-managed secrets are supported for controlled environments, but never
-place real credentials into committed values files.
+```text
+DOCKER_POSTGRES_PASSWORD
+DOCKER_CROWLER_DB_USER
+DOCKER_CROWLER_DB_PASSWORD
+SEL_PASSWD
+```
+
+Chart-managed Secret changes automatically roll consumers.
+
+For externally managed Secrets, use `secrets.rolloutToken` or restart
+consumers.
+
+Never commit real secret values.
+
+## PostgreSQL
+
+Bundled PostgreSQL uses:
+
+* a release-scoped headless Service for StatefulSet identity
+* a release-scoped ClusterIP Service for clients
+* a StatefulSet with optional persistent PVC
+
+When `database.enabled=false`, `database.host` is required.
 
 ## Validate
 
-Run:
-
 ```text
-helm lint
-helm template
+helm lint helm/thecrowler
+helm template <release> helm/thecrowler --namespace <namespace>
 ```
-
-before install or upgrade.
 
 ## Upgrades
 
-Use `helm upgrade --install` for idempotent deployment.
+Use `helm upgrade --install`.
 
-Preserve PostgreSQL PVCs across upgrades and uninstall/reinstall operations
-unless persistent data deletion is explicitly intended.
-
-## Safety
-
-Do not expose internal VDI or database services publicly by default.
-
-Do not use local image builds.
-
-Do not silently enable bundled PostgreSQL when the user configured an external
-database.
+Preserve PostgreSQL PVCs unless deletion is explicitly intended.

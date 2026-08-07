@@ -1,27 +1,35 @@
 global:
-  crowlerVersion: latest
-  vdiVersion: 4.28.1-20260807
-  imagePullPolicy: Always
+  crowlerVersion: "2.0.3"
+  vdiVersion: "4.28.1-20260807"
+  imagePullPolicy: IfNotPresent
   timezone: UTC
 
 config:
   create: false
   existingConfigMap: crowler-config
   content: ""
+  # Change this value during a Helm upgrade when an externally managed
+  # ConfigMap changes and you want Helm to roll Engine/API/Events pods.
+  rolloutToken: ""
 
 secrets:
   create: false
   existingSecret: crowler-secrets
+  # Change this value during a Helm upgrade when an externally managed
+  # Secret changes and you want Helm to roll workloads.
+  rolloutToken: ""
   data:
     postgresPassword: ""
     crowlerDbUser: crowler
     crowlerDbPassword: ""
+    seleniumPassword: ""
 
 database:
   enabled: true
   image:
     repository: zfpsystems/crowler-db
-  host: crowler-db
+  # Used only when database.enabled=false.
+  host: ""
   port: 5432
   name: SitesIndex
   postgresUser: postgres
@@ -100,7 +108,6 @@ vdi:
   replicas: 2
   image:
     repository: zfpsystems/crowler-vdi
-  seleniumPassword: secret
   service:
     type: ClusterIP
     sessionAffinity: ClientIP

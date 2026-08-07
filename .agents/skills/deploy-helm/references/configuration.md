@@ -6,20 +6,21 @@ Chart:
 helm/thecrowler/
 ```
 
-## Image Versions
+## Versions
 
 ```text
 global.crowlerVersion
 global.vdiVersion
 ```
 
-## Runtime Config
+## ConfigMap
 
-Existing ConfigMap:
+External:
 
 ```text
 config.create=false
 config.existingConfigMap=crowler-config
+config.rolloutToken=""
 ```
 
 Chart-managed:
@@ -29,19 +30,66 @@ config.create=true
 config.content=<config.yaml>
 ```
 
-## Secrets
+## Secret
 
-Existing Secret:
+External:
 
 ```text
 secrets.create=false
 secrets.existingSecret=crowler-secrets
+secrets.rolloutToken=""
 ```
 
-Chart-managed:
+Required keys:
 
 ```text
-secrets.create=true
+DOCKER_POSTGRES_PASSWORD
+DOCKER_CROWLER_DB_USER
+DOCKER_CROWLER_DB_PASSWORD
+SEL_PASSWD
+```
+
+Chart-managed values:
+
+```text
+secrets.data.postgresPassword
+secrets.data.crowlerDbUser
+secrets.data.crowlerDbPassword
+secrets.data.seleniumPassword
+```
+
+## Release Scoping
+
+Helm resource names are derived from `.Release.Name`.
+
+For release `crowler`:
+
+```text
+crowler-db
+crowler-db-headless
+crowler-api
+crowler-events
+crowler-engine
+crowler-vdi
+crowler-jaeger
+crowler-push-gateway
+```
+
+Selectors include `app.kubernetes.io/instance`.
+
+## Database
+
+Bundled:
+
+```text
+database.enabled=true
+```
+
+External:
+
+```text
+database.enabled=false
+database.host=<external-host>
 ```
 
 ## Replicas
@@ -53,22 +101,6 @@ engine.replicas
 vdi.replicas
 ```
 
-## Database
-
-Bundled:
-
-```text
-database.enabled=true
-database.host=crowler-db
-```
-
-External:
-
-```text
-database.enabled=false
-database.host=<external-host>
-```
-
 ## Optional Components
 
 ```text
@@ -78,8 +110,6 @@ pushgateway.enabled
 
 ## Storage
 
-Bundled PostgreSQL:
-
 ```text
 database.persistence.enabled
 database.persistence.size
@@ -88,7 +118,7 @@ database.persistence.storageClass
 
 ## Scheduling
 
-Each component supports:
+Each workload supports:
 
 ```text
 nodeSelector

@@ -1,6 +1,6 @@
 # Deploying The CROWler with Helm
 
-The Helm chart is located at:
+The chart is located at:
 
 ```text
 helm/thecrowler/
@@ -10,8 +10,10 @@ It packages the same architecture documented under `kubernetes/`.
 
 ## Requirements
 
-* Kubernetes
-* Helm 3+
+* Kubernetes 1.27+
+* Helm 4 recommended
+* Helm 3 remains supported by this chart
+* `kubectl`
 * access to the official CROWler images
 
 ## Prepare Runtime Configuration
@@ -22,7 +24,7 @@ From the repository root:
 cp common/env/env_template .env
 ```
 
-Choose one:
+Choose exactly one:
 
 ```bash
 cp common/config/config.default config.yaml
@@ -36,9 +38,18 @@ cp common/config/config.default.remote config.yaml
 
 Edit both files.
 
+Set:
+
+```text
+DOCKER_POSTGRES_PASSWORD
+DOCKER_CROWLER_DB_USER
+DOCKER_CROWLER_DB_PASSWORD
+SEL_PASSWD
+```
+
 ## Recommended Production Model
 
-Keep runtime configuration and secrets as existing Kubernetes objects.
+Use externally managed Kubernetes ConfigMaps and Secrets.
 
 Create the namespace:
 
@@ -46,7 +57,7 @@ Create the namespace:
 kubectl create namespace crowler --dry-run=client -o yaml | kubectl apply -f -
 ```
 
-Create the runtime configuration:
+Create the runtime ConfigMap:
 
 ```bash
 kubectl create configmap crowler-config   -n crowler   --from-file=config.yaml=./config.yaml   --dry-run=client   -o yaml | kubectl apply -f -
@@ -63,7 +74,7 @@ set +a
 Create the Secret:
 
 ```bash
-kubectl create secret generic crowler-secrets   -n crowler   --from-literal=DOCKER_POSTGRES_PASSWORD="$DOCKER_POSTGRES_PASSWORD"   --from-literal=DOCKER_CROWLER_DB_USER="$DOCKER_CROWLER_DB_USER"   --from-literal=DOCKER_CROWLER_DB_PASSWORD="$DOCKER_CROWLER_DB_PASSWORD"   --dry-run=client   -o yaml | kubectl apply -f -
+kubectl create secret generic crowler-secrets   -n crowler   --from-literal=DOCKER_POSTGRES_PASSWORD="$DOCKER_POSTGRES_PASSWORD"   --from-literal=DOCKER_CROWLER_DB_USER="$DOCKER_CROWLER_DB_USER"   --from-literal=DOCKER_CROWLER_DB_PASSWORD="$DOCKER_CROWLER_DB_PASSWORD"   --from-literal=SEL_PASSWD="$SEL_PASSWD"   --dry-run=client   -o yaml | kubectl apply -f -
 ```
 
 Install:
@@ -72,9 +83,55 @@ Install:
 helm upgrade --install crowler ./helm/thecrowler   --namespace crowler   --create-namespace
 ```
 
-## Chart-Managed ConfigMap
+With release name `crowler`, resource names remain familiar:
 
-Instead of creating `crowler-config` separately:
+```text
+crowler-db
+crowler-db-headless
+crowler-api
+crowler-events
+crowler-engine
+crowler-vdi
+crowler-jaeger
+crowler-push-gateway
+```
+
+A different Helm release name receives its own resource prefix, allowing
+multiple CROWler releases in the same namespace.
+
+## Updating an External ConfigMap
+
+Kubernetes `subPath` mounts do not update inside existing pods.
+
+After changing the externally managed ConfigMap, either restart:
+
+```bash
+kubectl rollout restart deployment/crowler-engine -n crowler
+kubectl rollout restart deployment/crowler-api -n crowler
+kubectl rollout restart deployment/crowler-events -n crowler
+```
+
+or force the same rollouts through Helm:
+
+```bash
+helm upgrade crowler ./helm/thecrowler   -n crowler   --set-string config.rolloutToken="$(date +%s)"
+```
+
+When `config.create=true`, the chart hashes `config.content` automatically and
+rolls Engine/API/Events whenever the content changes.
+
+## Updating an External Secret
+
+When an externally managed Secret changes, restart its consumers or change:
+
+```bash
+helm upgrade crowler ./helm/thecrowler   -n crowler   --set-string secrets.rolloutToken="$(date +%s)"
+```
+
+When `secrets.create=true`, the chart hashes the chart-managed secret values
+automatically and rolls affected workloads when they change.
+
+## Chart-Managed ConfigMap
 
 ```bash
 helm upgrade --install crowler ./helm/thecrowler   --namespace crowler   --create-namespace   --set config.create=true   --set-file config.content=./config.yaml
@@ -82,9 +139,7 @@ helm upgrade --install crowler ./helm/thecrowler   --namespace crowler   --creat
 
 ## Chart-Managed Secret
 
-For non-production testing, the chart can create its Secret.
-
-Create a private values file that is not committed:
+Create an uncommitted `values.private.yaml`:
 
 ```yaml
 secrets:
@@ -94,6 +149,7 @@ secrets:
     postgresPassword: "replace-me"
     crowlerDbUser: "crowler"
     crowlerDbPassword: "replace-me"
+    seleniumPassword: "replace-me"
 ```
 
 Then:
@@ -102,11 +158,18 @@ Then:
 helm upgrade --install crowler ./helm/thecrowler   --namespace crowler   --create-namespace   -f values.private.yaml
 ```
 
-For production, existing Secrets are preferred.
+Existing Secrets are preferred for production.
 
-## Image Versions
+## Versions
 
-Override CROWler versions:
+The chart defaults to:
+
+```text
+CROWler: 2.0.3
+VDI:     4.28.1-20260807
+```
+
+Override them with:
 
 ```bash
 helm upgrade --install crowler ./helm/thecrowler   -n crowler   --set global.crowlerVersion=2.0.3   --set global.vdiVersion=4.28.1-20260807
@@ -118,17 +181,15 @@ helm upgrade --install crowler ./helm/thecrowler   -n crowler   --set global.cro
 helm upgrade --install crowler ./helm/thecrowler   -n crowler   --set engine.replicas=4   --set vdi.replicas=4
 ```
 
-The VDI Service uses `ClientIP` session affinity for stable Selenium routing.
+VDI uses `ClientIP` session affinity.
 
 ## External PostgreSQL
-
-Disable the bundled database and set the database host:
 
 ```bash
 helm upgrade --install crowler ./helm/thecrowler   -n crowler   --set database.enabled=false   --set database.host=postgres.example.internal
 ```
 
-The Secret must still contain the CROWler DB username and password.
+The configured Secret must contain the CROWler DB credentials.
 
 ## Validate
 
@@ -137,7 +198,7 @@ helm lint helm/thecrowler
 helm template crowler helm/thecrowler --namespace crowler
 ```
 
-With chart-managed `config.yaml`:
+Chart-managed config validation:
 
 ```bash
 helm template crowler helm/thecrowler   --namespace crowler   --set config.create=true   --set-file config.content=./config.yaml
@@ -155,5 +216,5 @@ helm upgrade crowler ./helm/thecrowler -n crowler
 helm uninstall crowler -n crowler
 ```
 
-Helm uninstall does not imply that persistent database PVCs should be deleted.
-Review persistent storage before removing it.
+Do not delete PostgreSQL PVCs unless persistent data deletion is explicitly
+intended.

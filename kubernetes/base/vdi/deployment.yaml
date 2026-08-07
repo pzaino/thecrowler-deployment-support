@@ -49,13 +49,16 @@ spec:
             - name: SE_NODE_ENABLE_CDP
               value: "true"
             - name: SE_ENABLE_TRACING
-              value: "true"
+              value: "false"
             - name: SE_OTEL_TRACES_EXPORTER
               value: otlp
             - name: SE_OTEL_EXPORTER_ENDPOINT
               value: http://crowler-jaeger:4317
             - name: SEL_PASSWD
-              value: secret
+              valueFrom:
+                secretKeyRef:
+                  name: crowler-secrets
+                  key: SEL_PASSWD
             - name: TZ
               value: UTC
             - name: MICROSERVICE_NAME

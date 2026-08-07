@@ -2,7 +2,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: crowler-engine
+  name: {{ include "thecrowler.engineName" . }}
   labels:
     app.kubernetes.io/name: crowler-engine
     {{- include "thecrowler.labels" . | nindent 4 }}
@@ -11,11 +11,16 @@ spec:
   selector:
     matchLabels:
       app.kubernetes.io/name: crowler-engine
+      app.kubernetes.io/instance: {{ .Release.Name | quote }}
   template:
     metadata:
       labels:
         app.kubernetes.io/name: crowler-engine
         app.kubernetes.io/part-of: thecrowler
+        app.kubernetes.io/instance: {{ .Release.Name | quote }}
+      annotations:
+        checksum/config: {{ include "thecrowler.configChecksum" . | quote }}
+        checksum/secret: {{ include "thecrowler.secretChecksum" . | quote }}
     spec:
       automountServiceAccountToken: false
       containers:
@@ -32,7 +37,7 @@ spec:
                 fieldRef:
                   fieldPath: metadata.name
             - name: SELENIUM_HOST
-              value: crowler-vdi
+              value: {{ include "thecrowler.vdiName" . | quote }}
             - name: POSTGRES_DB
               value: {{ .Values.database.name | quote }}
             - name: CROWLER_DB_USER
@@ -46,7 +51,7 @@ spec:
                   name: {{ include "thecrowler.secretName" . }}
                   key: DOCKER_CROWLER_DB_PASSWORD
             - name: POSTGRES_DB_HOST
-              value: {{ .Values.database.host | quote }}
+              value: {{ include "thecrowler.databaseHost" . | quote }}
             - name: POSTGRES_DB_PORT
               value: {{ .Values.database.port | quote }}
             - name: POSTGRES_SSL_MODE
@@ -62,20 +67,14 @@ spec:
                 - NET_RAW
           readinessProbe:
             exec:
-              command:
-                - ./healthCheck
-                - -service
-                - crowler
+              command: ["./healthCheck", "-service", "crowler"]
             initialDelaySeconds: 10
             periodSeconds: 10
             timeoutSeconds: 5
             failureThreshold: 6
           livenessProbe:
             exec:
-              command:
-                - ./healthCheck
-                - -service
-                - crowler
+              command: ["./healthCheck", "-service", "crowler"]
             initialDelaySeconds: 30
             periodSeconds: 20
             timeoutSeconds: 5

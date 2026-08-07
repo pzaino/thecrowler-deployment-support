@@ -5,6 +5,12 @@
   "properties": {
     "global": {
       "type": "object",
+      "required": [
+        "crowlerVersion",
+        "vdiVersion",
+        "imagePullPolicy",
+        "timezone"
+      ],
       "properties": {
         "crowlerVersion": {
           "type": "string",
@@ -30,6 +36,12 @@
     },
     "config": {
       "type": "object",
+      "required": [
+        "create",
+        "existingConfigMap",
+        "content",
+        "rolloutToken"
+      ],
       "properties": {
         "create": {
           "type": "boolean"
@@ -39,29 +51,65 @@
         },
         "content": {
           "type": "string"
+        },
+        "rolloutToken": {
+          "type": "string"
         }
       }
     },
     "secrets": {
       "type": "object",
+      "required": [
+        "create",
+        "existingSecret",
+        "rolloutToken",
+        "data"
+      ],
       "properties": {
         "create": {
           "type": "boolean"
         },
         "existingSecret": {
           "type": "string"
+        },
+        "rolloutToken": {
+          "type": "string"
+        },
+        "data": {
+          "type": "object",
+          "properties": {
+            "postgresPassword": {
+              "type": "string"
+            },
+            "crowlerDbUser": {
+              "type": "string",
+              "minLength": 1
+            },
+            "crowlerDbPassword": {
+              "type": "string"
+            },
+            "seleniumPassword": {
+              "type": "string"
+            }
+          }
         }
       }
     },
     "database": {
       "type": "object",
+      "required": [
+        "enabled",
+        "host",
+        "port",
+        "name",
+        "sslMode"
+      ],
       "properties": {
         "enabled": {
           "type": "boolean"
         },
         "host": {
-          "type": "string",
-          "minLength": 1
+          "type": "string"
         },
         "port": {
           "type": "integer",
@@ -69,6 +117,10 @@
           "maximum": 65535
         },
         "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sslMode": {
           "type": "string",
           "minLength": 1
         }

@@ -20,7 +20,7 @@ spec:
       automountServiceAccountToken: false
       containers:
         - name: crowler-engine
-          image: zfpsystems/crowler-engine:latest
+          image: zfpsystems/crowler-engine:2.0.3
           imagePullPolicy: Always
           envFrom:
             - secretRef:

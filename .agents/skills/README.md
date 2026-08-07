@@ -20,7 +20,7 @@ Deployment-specific operational workflows belong in individual skills.
 Skills live under:
 
 ```text
-.agents/skills/
+agents/skills/ (review bundle; merge as `.agents/skills/`)
 ```
 
 Each skill should keep workflow instructions in `SKILL.md` and detailed

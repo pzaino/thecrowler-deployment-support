@@ -2,21 +2,25 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: crowler-db
+  name: {{ include "thecrowler.dbName" . }}
   labels:
     app.kubernetes.io/name: crowler-db
     {{- include "thecrowler.labels" . | nindent 4 }}
 spec:
-  serviceName: crowler-db
+  serviceName: {{ include "thecrowler.dbHeadlessName" . }}
   replicas: 1
   selector:
     matchLabels:
       app.kubernetes.io/name: crowler-db
+      app.kubernetes.io/instance: {{ .Release.Name | quote }}
   template:
     metadata:
       labels:
         app.kubernetes.io/name: crowler-db
         app.kubernetes.io/part-of: thecrowler
+        app.kubernetes.io/instance: {{ .Release.Name | quote }}
+      annotations:
+        checksum/secret: {{ include "thecrowler.secretChecksum" . | quote }}
     spec:
       automountServiceAccountToken: false
       containers:
@@ -52,20 +56,14 @@ spec:
               value: crowler-db
           readinessProbe:
             exec:
-              command:
-                - sh
-                - -c
-                - pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB"
+              command: ["sh", "-c", "pg_isready -U \"$POSTGRES_USER\" -d \"$POSTGRES_DB\""]
             initialDelaySeconds: 5
             periodSeconds: 10
             timeoutSeconds: 5
             failureThreshold: 6
           livenessProbe:
             exec:
-              command:
-                - sh
-                - -c
-                - pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB"
+              command: ["sh", "-c", "pg_isready -U \"$POSTGRES_USER\" -d \"$POSTGRES_DB\""]
             initialDelaySeconds: 20
             periodSeconds: 20
             timeoutSeconds: 5

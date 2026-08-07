@@ -2,7 +2,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: crowler-vdi
+  name: {{ include "thecrowler.vdiName" . }}
   labels:
     app.kubernetes.io/name: crowler-vdi
     {{- include "thecrowler.labels" . | nindent 4 }}
@@ -11,11 +11,15 @@ spec:
   selector:
     matchLabels:
       app.kubernetes.io/name: crowler-vdi
+      app.kubernetes.io/instance: {{ .Release.Name | quote }}
   template:
     metadata:
       labels:
         app.kubernetes.io/name: crowler-vdi
         app.kubernetes.io/part-of: thecrowler
+        app.kubernetes.io/instance: {{ .Release.Name | quote }}
+      annotations:
+        checksum/secret: {{ include "thecrowler.secretChecksum" . | quote }}
     spec:
       automountServiceAccountToken: false
       containers:
@@ -37,8 +41,13 @@ spec:
             - {name: SE_NODE_ENABLE_CDP, value: "true"}
             - {name: SE_ENABLE_TRACING, value: {{ .Values.jaeger.enabled | quote }}}
             - {name: SE_OTEL_TRACES_EXPORTER, value: "otlp"}
-            - {name: SE_OTEL_EXPORTER_ENDPOINT, value: "http://crowler-jaeger:4317"}
-            - {name: SEL_PASSWD, value: {{ .Values.vdi.seleniumPassword | quote }}}
+            - name: SE_OTEL_EXPORTER_ENDPOINT
+              value: {{ printf "http://%s:4317" (include "thecrowler.jaegerName" .) | quote }}
+            - name: SEL_PASSWD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "thecrowler.secretName" . }}
+                  key: SEL_PASSWD
             - {name: TZ, value: {{ .Values.global.timezone | quote }}}
             - {name: MICROSERVICE_NAME, value: "crowler-vdi"}
           readinessProbe:
