@@ -10,9 +10,9 @@ The deployment generator can create a Docker Compose configuration with a config
 * CROWler VDI instances
 * CROWler API
 * CROWler Events
-* PostgreSQL
-* Jaeger
-* Prometheus Pushgateway
+* CROWler DB (PostgreSQL)
+* CROWler Jaeger (Jaeger Open Telemetry)
+* CROWler PushGateway (Prometheus Pushgateway)
 
 The official CROWler container images are published on Docker Hub under the `zfpsystems` namespace.
 
