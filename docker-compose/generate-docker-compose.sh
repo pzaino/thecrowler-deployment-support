@@ -387,6 +387,10 @@ EOF
       - crowler-net
     volumes:
       - api_data:/app/data
+      - ./user/agents:/app/user/agents:ro
+      - ./user/plugins:/app/user/plugins:ro
+      - ./user/rules:/app/user/rules:ro
+      - ./user/support:/app/user/support:ro
     configs:
       - source: crowler_config
         target: /app/config.yaml
@@ -433,6 +437,10 @@ EOF
       - crowler-net
     volumes:
       - events_data:/app/data
+      - ./user/agents:/app/user/agents:ro
+      - ./user/plugins:/app/user/plugins:ro
+      - ./user/rules:/app/user/rules:ro
+      - ./user/support:/app/user/support:ro
     configs:
       - source: crowler_config
         target: /app/config.yaml
@@ -558,6 +566,10 @@ EOF
     tty: true
     volumes:
       - engine_data:/app/data
+      - ./user/agents:/app/user/agents:ro
+      - ./user/plugins:/app/user/plugins:ro
+      - ./user/rules:/app/user/rules:ro
+      - ./user/support:/app/user/support:ro
     configs:
       - source: crowler_config
         target: /app/config.yaml

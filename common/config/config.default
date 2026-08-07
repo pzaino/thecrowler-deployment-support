@@ -701,6 +701,7 @@ rulesets:
     # Supports wildcards; multiple paths allowed
     path:
       - "./rules/*.yaml"
+      - "./user/rules/*.yaml"
     # If type is set to remote (the remote host)
     host: ""
     # If type is set to remote (the remote port)
@@ -727,6 +728,7 @@ agents:
     # One or more globs/paths
     path:
       - "./agents/*.yaml"
+      - "./user/agents/*.yaml"
     # If type is set to remote (the remote host)
     host: ""
     # If type is set to remote (the remote port)
@@ -787,7 +789,8 @@ plugins:
     - type: local
       # Directory or specific files/globs
       path:
-        - "./plugins/"
+        - "./plugins/*.js"
+        - "./user/plugins/*.js"
       # If type is set to remote (specifies to use HTTPS, FTPS etc. for fetching plugins remotely)
       #sslmode: disable
       # If type is set to remote, the host for fetching plugins remotely (applies to http/s3 types)
