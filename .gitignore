@@ -1,3 +1,8 @@
 # IDEs artifacts
 .vscode/
 .idea/
+
+.env
+config.yaml
+kubernetes/secret.yaml
+helm/**/values.private.yaml
