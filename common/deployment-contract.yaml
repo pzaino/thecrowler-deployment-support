@@ -1,0 +1,23 @@
+schema_version: 1
+
+images:
+  database:
+    repository: zfpsystems/crowler-db
+    version_env: CROWLER_VERSION
+
+  engine:
+    repository: zfpsystems/crowler-engine
+    version_env: CROWLER_VERSION
+
+  api:
+    repository: zfpsystems/crowler-api
+    version_env: CROWLER_VERSION
+
+  events:
+    repository: zfpsystems/crowler-events
+    version_env: CROWLER_VERSION
+
+  vdi:
+    repository: zfpsystems/crowler-vdi
+    version_env: CROWLER_VDI_VERSION
+    

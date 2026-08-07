@@ -8,7 +8,7 @@ metadata:
   repository: pzaino/thecrowler-deployment-support
   deployment-backend: docker-compose
   
-----------------------------------
+---
 
 # Deploy The CROWler with Docker Compose
 
