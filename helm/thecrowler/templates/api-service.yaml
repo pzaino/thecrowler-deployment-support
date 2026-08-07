@@ -1,0 +1,17 @@
+{{- if .Values.api.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: crowler-api
+  labels:
+    app.kubernetes.io/name: crowler-api
+    {{- include "thecrowler.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.api.service.type }}
+  selector:
+    app.kubernetes.io/name: crowler-api
+  ports:
+    - name: http
+      port: {{ .Values.api.service.port }}
+      targetPort: http
+{{- end }}

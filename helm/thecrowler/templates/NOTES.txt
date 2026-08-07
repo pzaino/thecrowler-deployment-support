@@ -1,0 +1,20 @@
+The CROWler Helm release is installed.
+
+Namespace:
+  {{ .Release.Namespace }}
+
+Runtime configuration:
+  ConfigMap: {{ include "thecrowler.configMapName" . }}
+
+Credentials:
+  Secret: {{ include "thecrowler.secretName" . }}
+
+{{- if .Values.api.enabled }}
+
+Access the API locally:
+  kubectl port-forward -n {{ .Release.Namespace }} service/crowler-api 8080:{{ .Values.api.service.port }}
+{{- end }}
+
+Inspect workloads:
+  kubectl get pods -n {{ .Release.Namespace }}
+  kubectl get services -n {{ .Release.Namespace }}

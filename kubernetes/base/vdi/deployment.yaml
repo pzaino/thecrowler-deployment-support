@@ -1,0 +1,91 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: crowler-vdi
+  namespace: crowler
+  labels:
+    app.kubernetes.io/name: crowler-vdi
+    app.kubernetes.io/part-of: thecrowler
+spec:
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: crowler-vdi
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: crowler-vdi
+        app.kubernetes.io/part-of: thecrowler
+    spec:
+      automountServiceAccountToken: false
+      containers:
+        - name: crowler-vdi
+          image: zfpsystems/crowler-vdi:4.28.1-20260807
+          imagePullPolicy: Always
+          ports:
+            - name: selenium
+              containerPort: 4444
+            - name: management
+              containerPort: 4445
+            - name: vnc
+              containerPort: 5900
+            - name: novnc
+              containerPort: 7900
+            - name: cdp
+              containerPort: 9222
+          env:
+            - name: SE_SCREEN_WIDTH
+              value: "1920"
+            - name: SE_SCREEN_HEIGHT
+              value: "1080"
+            - name: SE_SCREEN_DEPTH
+              value: "24"
+            - name: SE_ROLE
+              value: standalone
+            - name: SE_REJECT_UNSUPPORTED_CAPS
+              value: "true"
+            - name: SE_NODE_ENABLE_CDP
+              value: "true"
+            - name: SE_ENABLE_TRACING
+              value: "true"
+            - name: SE_OTEL_TRACES_EXPORTER
+              value: otlp
+            - name: SE_OTEL_EXPORTER_ENDPOINT
+              value: http://crowler-jaeger:4317
+            - name: SEL_PASSWD
+              value: secret
+            - name: TZ
+              value: UTC
+            - name: MICROSERVICE_NAME
+              value: crowler-vdi
+          readinessProbe:
+            tcpSocket:
+              port: selenium
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 12
+          livenessProbe:
+            tcpSocket:
+              port: selenium
+            initialDelaySeconds: 30
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 6
+          resources:
+            requests:
+              cpu: "500m"
+              memory: "1Gi"
+            limits:
+              cpu: "2"
+              memory: "4Gi"
+          volumeMounts:
+            - name: dshm
+              mountPath: /dev/shm
+      volumes:
+        - name: dshm
+          emptyDir:
+            medium: Memory
+            sizeLimit: 2Gi

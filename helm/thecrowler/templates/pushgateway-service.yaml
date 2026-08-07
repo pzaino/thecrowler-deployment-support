@@ -1,0 +1,15 @@
+{{- if .Values.pushgateway.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: crowler-push-gateway
+  labels:
+    app.kubernetes.io/name: crowler-push-gateway
+    {{- include "thecrowler.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.pushgateway.service.type }}
+  selector:
+    app.kubernetes.io/name: crowler-push-gateway
+  ports:
+    - {name: http, port: 9091, targetPort: http}
+{{- end }}

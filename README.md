@@ -1,107 +1,45 @@
 # The CROWler Deployment Support
 
-Deployment tooling and documentation for running **The CROWler** using the
-official pre-built container images.
+Deployment tooling and documentation for running **The CROWler** with official
+pre-built container images.
 
 Source development belongs in:
 
 https://github.com/pzaino/thecrowler
 
-## Table of Contents
-
-* [Deployment Guides](#deployment-guides)
-* [Quick Start](#quick-start)
-* [Deployment Files](#deployment-files)
-* [Official Images](#official-images)
-* [Configuration](#configuration)
-* [Repository Structure](#repository-structure)
-* [Project Links](#project-links)
-
 ## Deployment Guides
 
 | Deployment method | Status | Documentation |
 | --- | --- | --- |
-| Docker Compose | **Available** | [Docker Compose guide](docker-compose/README.md) |
-| Docker Swarm | **Available** | [Docker Swarm guide](docker-swarm/README.md) |
+| Docker Compose | **Available** | [Docker Compose](docker-compose/README.md) |
+| Docker Swarm | **Available** | [Docker Swarm](docker-swarm/README.md) |
+| Kubernetes | **Available** | [Kubernetes](kubernetes/README.md) |
+| Helm | **Available** | [Helm](helm/README.md) |
 | HashiCorp Nomad | Planned | `nomad/README.md` |
-| Kubernetes | Planned | `kubernetes/README.md` |
-| Helm | Planned | `helm/README.md` |
 
-## Quick Start
+## Common Deployment Inputs
 
-Clone the repository:
-
-```bash
-git clone https://github.com/pzaino/thecrowler-deployment-support.git
-cd thecrowler-deployment-support
-```
-
-Create `.env`:
+Create the environment file:
 
 ```bash
 cp common/env/env_template .env
 ```
 
-Create the CROWler runtime configuration.
+Create the CROWler runtime configuration from one configuration model.
 
-For local configuration:
+Local configuration:
 
 ```bash
 cp common/config/config.default config.yaml
 ```
 
-Or for remote configuration bootstrap:
+Remote configuration bootstrap:
 
 ```bash
 cp common/config/config.default.remote config.yaml
 ```
 
-Edit `.env` and `config.yaml`.
-
-Generate Docker Compose:
-
-```bash
-./docker-compose/generate-docker-compose.sh \
-  -e=2 \
-  -v=2 \
-  --prom=yes \
-  --pg=yes
-```
-
-Validate and start:
-
-```bash
-docker compose config
-docker compose pull
-docker compose up -d
-```
-
-For Swarm, use the same generator with:
-
-```text
---swarm=yes
-```
-
-and follow [docker-swarm/README.md](docker-swarm/README.md).
-
-## Deployment Files
-
-A generated deployment is built around:
-
-```text
-.env
-config.yaml
-docker-compose.yml
-```
-
-`.env` contains deployment environment variables and secrets.
-
-`config.yaml` contains CROWler runtime configuration.
-
-`docker-compose.yml` is generated from the selected topology.
-
-Engine, API, and Events receive `config.yaml` as `/app/config.yaml` through a
-Docker config named `crowler_config`.
+Edit the resulting `.env` and `config.yaml`.
 
 ## Official Images
 
@@ -117,25 +55,25 @@ Docker config named `crowler_config`.
 
 `CROWLER_VDI_VERSION` controls VDI independently.
 
-## Configuration
+## Kubernetes and Helm
 
-Shared templates are under:
+Raw Kubernetes manifests live under:
 
 ```text
-common/
-├── config/
-│   ├── config.default
-│   └── config.default.remote
-└── env/
-    └── env_template
+kubernetes/base/
 ```
 
-Use `config.default` for a complete local CROWler configuration.
+They provide a transparent reference deployment.
 
-Use `config.default.remote` when the deployment should bootstrap and retrieve
-its effective configuration from the configured remote distribution endpoint.
+The configurable Helm package lives under:
 
-Do not commit production secrets.
+```text
+helm/thecrowler/
+```
+
+Helm uses the same service architecture but exposes replicas, resources,
+storage, service types, image versions, optional components, configuration,
+and scheduling controls through `values.yaml`.
 
 ## Repository Structure
 
@@ -146,15 +84,20 @@ thecrowler-deployment-support/
 ├── .agents/
 │   └── skills/
 │       ├── deploy-docker-compose/
-│       └── deploy-docker-swarm/
+│       ├── deploy-docker-swarm/
+│       ├── deploy-kubernetes/
+│       └── deploy-helm/
 ├── common/
 │   ├── config/
 │   └── env/
 ├── docker-compose/
+├── docker-swarm/
+├── kubernetes/
 │   ├── README.md
-│   └── generate-docker-compose.sh
-└── docker-swarm/
-    └── README.md
+│   └── base/
+└── helm/
+    ├── README.md
+    └── thecrowler/
 ```
 
 ## Project Links

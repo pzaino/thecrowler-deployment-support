@@ -1,0 +1,105 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: crowler-engine
+  namespace: crowler
+  labels:
+    app.kubernetes.io/name: crowler-engine
+    app.kubernetes.io/part-of: thecrowler
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: crowler-engine
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: crowler-engine
+        app.kubernetes.io/part-of: thecrowler
+    spec:
+      automountServiceAccountToken: false
+      containers:
+        - name: crowler-engine
+          image: zfpsystems/crowler-engine:latest
+          imagePullPolicy: Always
+          envFrom:
+            - secretRef:
+                name: crowler-secrets
+                optional: true
+          env:
+            - name: INSTANCE_ID
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: SELENIUM_HOST
+              value: crowler-vdi
+            - name: POSTGRES_DB
+              value: SitesIndex
+            - name: CROWLER_DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: crowler-secrets
+                  key: DOCKER_CROWLER_DB_USER
+            - name: CROWLER_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: crowler-secrets
+                  key: DOCKER_CROWLER_DB_PASSWORD
+            - name: POSTGRES_DB_HOST
+              value: crowler-db
+            - name: POSTGRES_DB_PORT
+              value: "5432"
+            - name: POSTGRES_SSL_MODE
+              value: disable
+            - name: TZ
+              value: UTC
+            - name: MICROSERVICE_NAME
+              value: crowler-engine
+          securityContext:
+            capabilities:
+              add:
+                - NET_ADMIN
+                - NET_RAW
+          readinessProbe:
+            exec:
+              command:
+                - ./healthCheck
+                - -service
+                - crowler
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 6
+          livenessProbe:
+            exec:
+              command:
+                - ./healthCheck
+                - -service
+                - crowler
+            initialDelaySeconds: 30
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 6
+          resources:
+            requests:
+              cpu: "500m"
+              memory: "512Mi"
+            limits:
+              cpu: "2"
+              memory: "2Gi"
+          volumeMounts:
+            - name: crowler-config
+              mountPath: /app/config.yaml
+              subPath: config.yaml
+              readOnly: true
+            - name: engine-data
+              mountPath: /app/data
+      volumes:
+        - name: crowler-config
+          configMap:
+            name: crowler-config
+            items:
+              - key: config.yaml
+                path: config.yaml
+        - name: engine-data
+          emptyDir: {}

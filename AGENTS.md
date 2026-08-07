@@ -10,13 +10,13 @@ Source development belongs in:
 
 https://github.com/pzaino/thecrowler
 
-This repository is responsible for deployment tooling, deployment
-configuration, deployment documentation, and orchestration definitions that
-consume the official pre-built CROWler artifacts.
+Use this repository for deployment tooling, deployment configuration,
+documentation, and orchestration definitions that consume official CROWler
+artifacts.
 
 ## Official Images
 
-Use the official CROWler images:
+Use:
 
 * `zfpsystems/crowler-db`
 * `zfpsystems/crowler-engine`
@@ -26,147 +26,117 @@ Use the official CROWler images:
 
 unless the user explicitly requests another registry or image source.
 
-Do not introduce local `build:` directives into deployment definitions.
+Do not introduce local image builds into deployment definitions.
 
-Official CROWler images are multi-platform. Do not force `linux/amd64` unless
-there is an explicit platform requirement.
-
-## Deployment Documentation
+## Supported Deployment Backends
 
 Currently supported:
 
 * Docker Compose: `docker-compose/README.md`
 * Docker Swarm: `docker-swarm/README.md`
+* Kubernetes manifests: `kubernetes/README.md`
+* Helm: `helm/README.md`
 
-Planned deployment backends are listed in the root `README.md`.
-
-## Canonical Deployment Generator
-
-Docker Compose and Docker Swarm share:
-
-`docker-compose/generate-docker-compose.sh`
-
-When changing generated topology or behavior, modify the generator rather than
-manually maintaining equivalent changes only in generated
-`docker-compose.yml` files.
-
-## Deployment Runtime Files
-
-A normal deployment workspace contains:
-
-```text
-.env
-config.yaml
-docker-compose.yml
-```
-
-`.env` contains deployment environment variables and secrets.
-
-`config.yaml` contains the CROWler runtime configuration.
-
-`docker-compose.yml` is generated output.
+Planned backends are listed in the root `README.md`.
 
 ## CROWler Runtime Configuration
 
 CROWler Engine, API, and Events require `/app/config.yaml`.
 
-A deployment must provide a deployment-level `config.yaml`.
-
-Users may create it from either:
+A deployment must provide a deployment-level `config.yaml`, normally created
+from exactly one of:
 
 * `common/config/config.default`
 * `common/config/config.default.remote`
 
 Do not silently choose between local and remote configuration.
 
-The generated Docker Compose or Swarm deployment must deliver the selected
-configuration to:
+Delivery mechanism by backend:
 
-`/app/config.yaml`
+* Docker Compose: Docker config mounted at `/app/config.yaml`
+* Docker Swarm: Swarm config mounted at `/app/config.yaml`
+* Kubernetes: ConfigMap key `config.yaml` mounted at `/app/config.yaml`
+* Helm: existing or chart-managed ConfigMap mounted at `/app/config.yaml`
 
-for:
+Do not attach the CROWler runtime configuration to DB, VDI, Jaeger, or
+Pushgateway.
 
-* `crowler-engine-*`
-* `crowler-api`
-* `crowler-events`
-
-Do not attach the CROWler configuration to DB, VDI, Jaeger, or Pushgateway
-services.
-
-Prefer Docker `configs` rather than host bind mounts for delivering
-`config.yaml`. This keeps the same generated model usable with Docker Compose
-and Docker Swarm.
-
-## Environment and Credentials
+## Credentials
 
 Never invent credentials.
 
-Do not overwrite an existing `.env` or `config.yaml` unless explicitly
-requested.
+Never overwrite `.env`, `config.yaml`, Kubernetes Secrets, or private Helm
+values unless explicitly requested.
 
-Never expose credentials in:
+Do not commit credentials.
 
-* logs
-* documentation
-* commit messages
-* generated examples
-* responses
+## Kubernetes Invariants
 
-Use:
+Use Kubernetes-native primitives rather than recreating Compose behavior
+literally.
 
-`common/env/env_template`
+The default Kubernetes topology uses:
 
-as the baseline environment template.
+* StatefulSet for bundled PostgreSQL
+* Deployments for API, Events, Engine, VDI, Jaeger, and Pushgateway
+* ClusterIP Services for internal service discovery
+* a ConfigMap for CROWler `config.yaml`
+* a Secret for sensitive deployment values
+* a VDI Service with `ClientIP` session affinity for stable Selenium routing
+* an in-memory `emptyDir` mounted at `/dev/shm` for VDI
 
-## Persistent Data
+Do not expose PostgreSQL, Selenium, VNC, noVNC, Chrome DevTools, Jaeger, or
+Pushgateway publicly by default.
 
-Treat Docker volumes and database storage as persistent user data.
+## Helm Invariants
 
-Never remove persistent volumes, database data, configuration, or secrets as a
-routine troubleshooting step.
+The Helm chart under `helm/thecrowler/` is the configurable packaging of the
+same Kubernetes architecture.
+
+Do not make Helm behavior diverge from the raw Kubernetes model without
+documenting the difference.
+
+Prefer existing Kubernetes Secrets and ConfigMaps in production.
 
 ## Validation
 
-For Docker Compose:
+Docker Compose:
 
 ```bash
 docker compose config
 ```
 
-For Docker Swarm:
+Docker Swarm:
 
 ```bash
 docker stack config -c docker-compose.yml
 ```
 
-Validation alone does not prove the deployment is healthy.
+Kubernetes:
 
-Also verify:
+```bash
+kubectl apply --dry-run=client -f kubernetes/base/
+```
 
-* expected CROWler images
-* expected image versions
-* Engine count
-* VDI count
-* Engine-to-VDI references
-* networks
-* persistent volumes
-* CROWler config delivery
-* exposed ports
-* optional services
-* resource limits
-* environment resolution
-* service health or Swarm task state
+Validate component directories separately when the client cannot recursively
+load a directory tree.
+
+Helm:
+
+```bash
+helm lint helm/thecrowler
+helm template crowler helm/thecrowler --namespace crowler
+```
+
+Validation does not prove runtime health.
 
 ## Agent Skills
 
-Task-specific AI instructions are under:
+Task-specific instructions are under `.agents/skills/`.
 
-`.agents/skills/`
+Available deployment skills:
 
-Currently available:
-
-* `.agents/skills/deploy-docker-compose/`
-* `.agents/skills/deploy-docker-swarm/`
-
-Do not substitute one backend's workflow for another merely because they share
-the same generator.
+* `deploy-docker-compose`
+* `deploy-docker-swarm`
+* `deploy-kubernetes`
+* `deploy-helm`

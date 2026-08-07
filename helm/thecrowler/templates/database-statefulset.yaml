@@ -1,0 +1,109 @@
+{{- if .Values.database.enabled }}
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: crowler-db
+  labels:
+    app.kubernetes.io/name: crowler-db
+    {{- include "thecrowler.labels" . | nindent 4 }}
+spec:
+  serviceName: crowler-db
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: crowler-db
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: crowler-db
+        app.kubernetes.io/part-of: thecrowler
+    spec:
+      automountServiceAccountToken: false
+      containers:
+        - name: crowler-db
+          image: "{{ .Values.database.image.repository }}:{{ .Values.global.crowlerVersion }}"
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          ports:
+            - name: postgres
+              containerPort: {{ .Values.database.port }}
+          env:
+            - name: POSTGRES_DB
+              value: {{ .Values.database.name | quote }}
+            - name: POSTGRES_USER
+              value: {{ .Values.database.postgresUser | quote }}
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "thecrowler.secretName" . }}
+                  key: DOCKER_POSTGRES_PASSWORD
+            - name: CROWLER_DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "thecrowler.secretName" . }}
+                  key: DOCKER_CROWLER_DB_USER
+            - name: CROWLER_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "thecrowler.secretName" . }}
+                  key: DOCKER_CROWLER_DB_PASSWORD
+            - name: TZ
+              value: {{ .Values.global.timezone | quote }}
+            - name: MICROSERVICE_NAME
+              value: crowler-db
+          readinessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB"
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 6
+          livenessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB"
+            initialDelaySeconds: 20
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 6
+          resources:
+{{ toYaml .Values.database.resources | nindent 12 }}
+          volumeMounts:
+            - name: db-data
+              mountPath: /var/lib/postgresql/data
+      {{- if not .Values.database.persistence.enabled }}
+      volumes:
+        - name: db-data
+          emptyDir: {}
+      {{- end }}
+      {{- with .Values.database.nodeSelector }}
+      nodeSelector:
+{{ toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.database.affinity }}
+      affinity:
+{{ toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.database.tolerations }}
+      tolerations:
+{{ toYaml . | nindent 8 }}
+      {{- end }}
+  {{- if .Values.database.persistence.enabled }}
+  volumeClaimTemplates:
+    - metadata:
+        name: db-data
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        {{- if .Values.database.persistence.storageClass }}
+        storageClassName: {{ .Values.database.persistence.storageClass | quote }}
+        {{- end }}
+        resources:
+          requests:
+            storage: {{ .Values.database.persistence.size }}
+  {{- end }}
+{{- end }}

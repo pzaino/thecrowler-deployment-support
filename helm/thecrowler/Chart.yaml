@@ -1,0 +1,11 @@
+apiVersion: v2
+name: thecrowler
+description: Kubernetes deployment chart for The CROWler
+type: application
+version: 0.1.0
+appVersion: "2.0.3"
+kubeVersion: ">=1.27.0-0"
+home: https://github.com/pzaino/thecrowler
+sources:
+  - https://github.com/pzaino/thecrowler
+  - https://github.com/pzaino/thecrowler-deployment-support

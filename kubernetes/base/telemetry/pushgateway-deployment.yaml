@@ -1,0 +1,46 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: crowler-push-gateway
+  namespace: crowler
+  labels:
+    app.kubernetes.io/name: crowler-push-gateway
+    app.kubernetes.io/part-of: thecrowler
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: crowler-push-gateway
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: crowler-push-gateway
+        app.kubernetes.io/part-of: thecrowler
+    spec:
+      automountServiceAccountToken: false
+      containers:
+        - name: pushgateway
+          image: prom/pushgateway:latest
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 9091
+          readinessProbe:
+            httpGet:
+              path: /-/ready
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /-/healthy
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"

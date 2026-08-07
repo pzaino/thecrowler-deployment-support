@@ -1,0 +1,16 @@
+{{- if .Values.jaeger.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: crowler-jaeger
+  labels:
+    app.kubernetes.io/name: crowler-jaeger
+    {{- include "thecrowler.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.jaeger.service.type }}
+  selector:
+    app.kubernetes.io/name: crowler-jaeger
+  ports:
+    - {name: ui, port: 16686, targetPort: ui}
+    - {name: otlp-grpc, port: 4317, targetPort: otlp-grpc}
+{{- end }}

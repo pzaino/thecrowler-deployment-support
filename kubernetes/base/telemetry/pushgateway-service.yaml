@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: crowler-push-gateway
+  namespace: crowler
+  labels:
+    app.kubernetes.io/name: crowler-push-gateway
+    app.kubernetes.io/part-of: thecrowler
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: crowler-push-gateway
+  ports:
+    - name: http
+      port: 9091
+      targetPort: http

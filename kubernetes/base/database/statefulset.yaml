@@ -1,0 +1,91 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: crowler-db
+  namespace: crowler
+  labels:
+    app.kubernetes.io/name: crowler-db
+    app.kubernetes.io/part-of: thecrowler
+spec:
+  serviceName: crowler-db
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: crowler-db
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: crowler-db
+        app.kubernetes.io/part-of: thecrowler
+    spec:
+      automountServiceAccountToken: false
+      containers:
+        - name: crowler-db
+          image: zfpsystems/crowler-db:latest
+          imagePullPolicy: Always
+          ports:
+            - name: postgres
+              containerPort: 5432
+          env:
+            - name: POSTGRES_DB
+              value: SitesIndex
+            - name: POSTGRES_USER
+              value: postgres
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: crowler-secrets
+                  key: DOCKER_POSTGRES_PASSWORD
+            - name: CROWLER_DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: crowler-secrets
+                  key: DOCKER_CROWLER_DB_USER
+            - name: CROWLER_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: crowler-secrets
+                  key: DOCKER_CROWLER_DB_PASSWORD
+            - name: TZ
+              value: UTC
+            - name: MICROSERVICE_NAME
+              value: crowler-db
+          readinessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB"
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 6
+          livenessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB"
+            initialDelaySeconds: 20
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 6
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "512Mi"
+            limits:
+              cpu: "2"
+              memory: "2Gi"
+          volumeMounts:
+            - name: db-data
+              mountPath: /var/lib/postgresql/data
+  volumeClaimTemplates:
+    - metadata:
+        name: db-data
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: 10Gi

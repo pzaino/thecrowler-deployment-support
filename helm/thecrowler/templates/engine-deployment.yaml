@@ -1,0 +1,113 @@
+{{- if .Values.engine.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: crowler-engine
+  labels:
+    app.kubernetes.io/name: crowler-engine
+    {{- include "thecrowler.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.engine.replicas }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: crowler-engine
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: crowler-engine
+        app.kubernetes.io/part-of: thecrowler
+    spec:
+      automountServiceAccountToken: false
+      containers:
+        - name: crowler-engine
+          image: "{{ .Values.engine.image.repository }}:{{ .Values.global.crowlerVersion }}"
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          envFrom:
+            - secretRef:
+                name: {{ include "thecrowler.secretName" . }}
+                optional: true
+          env:
+            - name: INSTANCE_ID
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: SELENIUM_HOST
+              value: crowler-vdi
+            - name: POSTGRES_DB
+              value: {{ .Values.database.name | quote }}
+            - name: CROWLER_DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "thecrowler.secretName" . }}
+                  key: DOCKER_CROWLER_DB_USER
+            - name: CROWLER_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "thecrowler.secretName" . }}
+                  key: DOCKER_CROWLER_DB_PASSWORD
+            - name: POSTGRES_DB_HOST
+              value: {{ .Values.database.host | quote }}
+            - name: POSTGRES_DB_PORT
+              value: {{ .Values.database.port | quote }}
+            - name: POSTGRES_SSL_MODE
+              value: {{ .Values.database.sslMode | quote }}
+            - name: TZ
+              value: {{ .Values.global.timezone | quote }}
+            - name: MICROSERVICE_NAME
+              value: crowler-engine
+          securityContext:
+            capabilities:
+              add:
+                - NET_ADMIN
+                - NET_RAW
+          readinessProbe:
+            exec:
+              command:
+                - ./healthCheck
+                - -service
+                - crowler
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 6
+          livenessProbe:
+            exec:
+              command:
+                - ./healthCheck
+                - -service
+                - crowler
+            initialDelaySeconds: 30
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 6
+          resources:
+{{ toYaml .Values.engine.resources | nindent 12 }}
+          volumeMounts:
+            - name: crowler-config
+              mountPath: /app/config.yaml
+              subPath: config.yaml
+              readOnly: true
+            - name: engine-data
+              mountPath: /app/data
+      volumes:
+        - name: crowler-config
+          configMap:
+            name: {{ include "thecrowler.configMapName" . }}
+            items:
+              - key: config.yaml
+                path: config.yaml
+        - name: engine-data
+          emptyDir: {}
+      {{- with .Values.engine.nodeSelector }}
+      nodeSelector:
+{{ toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.engine.affinity }}
+      affinity:
+{{ toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.engine.tolerations }}
+      tolerations:
+{{ toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}

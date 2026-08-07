@@ -1,0 +1,156 @@
+global:
+  crowlerVersion: latest
+  vdiVersion: 4.28.1-20260807
+  imagePullPolicy: Always
+  timezone: UTC
+
+config:
+  create: false
+  existingConfigMap: crowler-config
+  content: ""
+
+secrets:
+  create: false
+  existingSecret: crowler-secrets
+  data:
+    postgresPassword: ""
+    crowlerDbUser: crowler
+    crowlerDbPassword: ""
+
+database:
+  enabled: true
+  image:
+    repository: zfpsystems/crowler-db
+  host: crowler-db
+  port: 5432
+  name: SitesIndex
+  postgresUser: postgres
+  sslMode: disable
+  persistence:
+    enabled: true
+    size: 10Gi
+    storageClass: ""
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: "2"
+      memory: 2Gi
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+api:
+  enabled: true
+  replicas: 1
+  image:
+    repository: zfpsystems/crowler-api
+  service:
+    type: ClusterIP
+    port: 8080
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+events:
+  enabled: true
+  replicas: 1
+  image:
+    repository: zfpsystems/crowler-events
+  service:
+    type: ClusterIP
+    port: 8082
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+engine:
+  enabled: true
+  replicas: 2
+  image:
+    repository: zfpsystems/crowler-engine
+  resources:
+    requests:
+      cpu: 500m
+      memory: 512Mi
+    limits:
+      cpu: "2"
+      memory: 2Gi
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+vdi:
+  enabled: true
+  replicas: 2
+  image:
+    repository: zfpsystems/crowler-vdi
+  seleniumPassword: secret
+  service:
+    type: ClusterIP
+    sessionAffinity: ClientIP
+    sessionAffinityTimeoutSeconds: 10800
+  resources:
+    requests:
+      cpu: 500m
+      memory: 1Gi
+    limits:
+      cpu: "2"
+      memory: 4Gi
+  shmSizeLimit: 2Gi
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+jaeger:
+  enabled: true
+  image:
+    repository: jaegertracing/all-in-one
+    tag: "1.54"
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+pushgateway:
+  enabled: true
+  image:
+    repository: prom/pushgateway
+    tag: latest
+    pullPolicy: Always
+  service:
+    type: ClusterIP
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}

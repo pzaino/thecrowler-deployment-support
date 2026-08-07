@@ -1,0 +1,142 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": true,
+  "properties": {
+    "global": {
+      "type": "object",
+      "properties": {
+        "crowlerVersion": {
+          "type": "string",
+          "minLength": 1
+        },
+        "vdiVersion": {
+          "type": "string",
+          "minLength": 1
+        },
+        "imagePullPolicy": {
+          "type": "string",
+          "enum": [
+            "Always",
+            "IfNotPresent",
+            "Never"
+          ]
+        },
+        "timezone": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "config": {
+      "type": "object",
+      "properties": {
+        "create": {
+          "type": "boolean"
+        },
+        "existingConfigMap": {
+          "type": "string"
+        },
+        "content": {
+          "type": "string"
+        }
+      }
+    },
+    "secrets": {
+      "type": "object",
+      "properties": {
+        "create": {
+          "type": "boolean"
+        },
+        "existingSecret": {
+          "type": "string"
+        }
+      }
+    },
+    "database": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "host": {
+          "type": "string",
+          "minLength": 1
+        },
+        "port": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65535
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "api": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "replicas": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "events": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "replicas": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "engine": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "replicas": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "vdi": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "replicas": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "jaeger": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        }
+      }
+    },
+    "pushgateway": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}

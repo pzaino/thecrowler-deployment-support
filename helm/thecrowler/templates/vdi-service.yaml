@@ -1,0 +1,25 @@
+{{- if .Values.vdi.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: crowler-vdi
+  labels:
+    app.kubernetes.io/name: crowler-vdi
+    {{- include "thecrowler.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.vdi.service.type }}
+  sessionAffinity: {{ .Values.vdi.service.sessionAffinity }}
+  {{- if eq .Values.vdi.service.sessionAffinity "ClientIP" }}
+  sessionAffinityConfig:
+    clientIP:
+      timeoutSeconds: {{ .Values.vdi.service.sessionAffinityTimeoutSeconds }}
+  {{- end }}
+  selector:
+    app.kubernetes.io/name: crowler-vdi
+  ports:
+    - {name: selenium, port: 4444, targetPort: selenium}
+    - {name: management, port: 4445, targetPort: management}
+    - {name: vnc, port: 5900, targetPort: vnc}
+    - {name: novnc, port: 7900, targetPort: novnc}
+    - {name: cdp, port: 9222, targetPort: cdp}
+{{- end }}
