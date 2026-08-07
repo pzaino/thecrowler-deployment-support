@@ -1,0 +1,8 @@
+# CROWler version to "docker pull"
+CROWLER_VERSION=latest
+
+# CROWler VDI version to "docker pull"
+#CROWLER_VDI_VERSION=4.28.1-20260807
+CROWLER_VDI_VERSION=latest
+
+
