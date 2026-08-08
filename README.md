@@ -15,7 +15,7 @@ https://github.com/pzaino/thecrowler
 | Docker Swarm | **Available** | [Docker Swarm](docker-swarm/README.md) |
 | Kubernetes | **Available** | [Kubernetes](kubernetes/README.md) |
 | Helm | **Available** | [Helm](helm/README.md) |
-| HashiCorp Nomad | Planned | `nomad/README.md` |
+| HashiCorp Nomad | **Available** | [HashiCorp Nomad](nomad/README.md) |
 
 ## Repository Root Is the Deployment Root
 
@@ -37,7 +37,8 @@ thecrowler-deployment-support/
 ├── docker-compose/
 ├── docker-swarm/
 ├── kubernetes/
-└── helm/
+├── helm/
+└── nomad/
 ```
 
 Create `.env`:
@@ -46,7 +47,7 @@ Create `.env`:
 cp common/env/env_template .env
 ```
 
-Create either:
+Create exactly one runtime configuration:
 
 ```bash
 cp common/config/config.default config.yaml
@@ -78,11 +79,6 @@ The stable runtime contract is:
 /app/user/support
 ```
 
-Docker Compose uses read-only bind mounts.
-
-Docker Swarm distributes direct user files through content-versioned Swarm
-configs instead of node-local bind mounts.
-
 See [user/README.md](user/README.md).
 
 ## Official Images
@@ -98,3 +94,18 @@ See [user/README.md](user/README.md).
 `CROWLER_VERSION` controls DB, Engine, API, and Events.
 
 `CROWLER_VDI_VERSION` controls VDI independently.
+
+## Nomad
+
+The Nomad backend uses:
+
+* HCL jobspecs
+* official Docker images
+* Nomad native service discovery
+* Nomad Variables for root `.env` values
+* dynamic host volumes for bundled PostgreSQL
+* allocation-local delivery of `config.yaml` and `user/*`
+
+See:
+
+[HashiCorp Nomad deployment guide](nomad/README.md)

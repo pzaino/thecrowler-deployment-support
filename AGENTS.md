@@ -15,10 +15,6 @@ docker-compose.yml
 user/
 ```
 
-Do not change into backend subdirectories before running generators,
-validation, or deployment commands unless a backend document explicitly says
-otherwise.
-
 Relative deployment paths are intentionally repository-root relative.
 
 ## Repository Purpose
@@ -47,6 +43,7 @@ Do not introduce local image builds unless explicitly requested.
 * Docker Swarm: `docker-swarm/README.md`
 * Kubernetes: `kubernetes/README.md`
 * Helm: `helm/README.md`
+* HashiCorp Nomad: `nomad/README.md`
 
 ## Runtime Configuration
 
@@ -84,44 +81,57 @@ Canonical runtime layout:
 /app/user/support
 ```
 
-Never mount over the built-in `/app/agents`, `/app/plugins`, `/app/rules`, or
-`/app/support` directories.
+Never mount over built-in `/app/agents`, `/app/plugins`, `/app/rules`, or
+`/app/support`.
 
 ### Docker Compose
 
-Use read-only repository-root bind mounts from `./user/...` to `/app/user/...`.
+Use read-only repository-root bind mounts.
 
 ### Docker Swarm
 
-Do not use node-local `./user/...` bind mounts.
+Do not use node-local `./user/...` bind mounts. Use versioned Swarm configs for
+small direct user files.
 
-Use content-hashed Docker Swarm configs for direct user files so Swarm can
-distribute them to scheduled tasks.
+### HashiCorp Nomad
 
-Swarm configs:
+Do not require `user/` directories on every Nomad client.
 
-* are immutable
-* are not secrets
-* are limited to 500 KiB each
+The Nomad CLI must be run from the repository root so HCL `file()` and
+`fileset()` can consume root `config.yaml` and `user/*` locally.
 
-A changed file must receive a new config object name while retaining its
-stable in-container target.
+Render those files into allocation-local directories and mount the resulting
+paths at `/app/user/...`.
 
-Larger user content requires an external/shared Swarm volume.
+Use native Nomad service discovery by default; do not make Consul mandatory.
 
+Use Nomad Variables at:
 
-CROWler images intended for this Swarm deployment contract must provide
-`/app/user/agents`, `/app/user/plugins`, `/app/user/rules`, and
-`/app/user/support` as readable directories.
+```text
+nomad/jobs/crowler/env
+```
+
+for the root `.env` values imported by `nomad/bootstrap-env.sh`.
+
+Bundled PostgreSQL uses a dynamic host volume. Do not describe local dynamic
+host volumes as highly available storage.
+
+Local VDI discovery requires the effective CROWler config to consume:
+
+```text
+SELENIUM_HOST
+```
+
+Do not silently deploy `localhost` as the VDI host in a multi-node Nomad
+deployment.
 
 ## Credentials
 
 Never invent credentials.
 
-Never commit `.env`, production Secrets, private Helm values, or other
-credentials.
+Never commit `.env`, production Secrets, private Helm values, or credentials.
 
-Do not place credentials inside user-content Docker configs.
+Do not put credentials inside `user/`.
 
 ## Validation
 
@@ -151,6 +161,13 @@ Helm:
 ```bash
 helm lint helm/thecrowler
 helm template crowler helm/thecrowler --namespace crowler
+```
+
+Nomad:
+
+```bash
+./nomad/deploy.sh validate
+./nomad/deploy.sh plan
 ```
 
 Validation does not prove runtime health.
