@@ -112,6 +112,6 @@ See:
 
 ## Contributing
 
-The CROWler is already thousands of active users, or so GitHub and Docker Hub stats says. 
+The CROWler has already thousands of active users, or so GitHub and Docker Hub stats say. 
 However, if you find anything wrong with any of the deployment support tools in this 
 repository, please feel free to fix the issue and open an PR with the fix, thank you!
