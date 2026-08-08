@@ -109,3 +109,9 @@ The Nomad backend uses:
 See:
 
 [HashiCorp Nomad deployment guide](nomad/README.md)
+
+## Contributing
+
+The CROWler is already thousands of active users, or so GitHub and Docker Hub stats says. 
+However, if you find anything wrong with any of the deployment support tools in this 
+repository, please feel free to fix the issue and open an PR with the fix, thank you!
