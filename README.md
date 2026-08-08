@@ -17,29 +17,73 @@ https://github.com/pzaino/thecrowler
 | Helm | **Available** | [Helm](helm/README.md) |
 | HashiCorp Nomad | Planned | `nomad/README.md` |
 
-## Common Deployment Inputs
+## Repository Root Is the Deployment Root
 
-Create the environment file:
+Run deployment commands from the repository root.
+
+The normal workspace is:
+
+```text
+thecrowler-deployment-support/
+├── .env
+├── config.yaml
+├── docker-compose.yml
+├── user/
+│   ├── agents/
+│   ├── plugins/
+│   ├── rules/
+│   └── support/
+├── common/
+├── docker-compose/
+├── docker-swarm/
+├── kubernetes/
+└── helm/
+```
+
+Create `.env`:
 
 ```bash
 cp common/env/env_template .env
 ```
 
-Create the CROWler runtime configuration from one configuration model.
-
-Local configuration:
+Create either:
 
 ```bash
 cp common/config/config.default config.yaml
 ```
 
-Remote configuration bootstrap:
+or:
 
 ```bash
 cp common/config/config.default.remote config.yaml
 ```
 
-Edit the resulting `.env` and `config.yaml`.
+## User Content
+
+Deployment-specific CROWler content belongs under:
+
+```text
+user/agents
+user/plugins
+user/rules
+user/support
+```
+
+The stable runtime contract is:
+
+```text
+/app/user/agents
+/app/user/plugins
+/app/user/rules
+/app/user/support
+```
+
+Docker Compose uses read-only bind mounts.
+
+Docker Swarm distributes direct user files through content-versioned Swarm
+configs instead of node-local bind mounts.
+
+See [user/README.md](user/README.md).
 
 ## Official Images
 
@@ -54,62 +98,3 @@ Edit the resulting `.env` and `config.yaml`.
 `CROWLER_VERSION` controls DB, Engine, API, and Events.
 
 `CROWLER_VDI_VERSION` controls VDI independently.
-
-## Kubernetes and Helm
-
-Raw Kubernetes manifests live under:
-
-```text
-kubernetes/base/
-```
-
-They provide a transparent reference deployment.
-
-The configurable Helm package lives under:
-
-```text
-helm/thecrowler/
-```
-
-Helm uses the same service architecture but exposes replicas, resources,
-storage, service types, image versions, optional components, configuration,
-and scheduling controls through `values.yaml`.
-
-## Repository Structure
-
-```text
-thecrowler-deployment-support/
-├── AGENTS.md
-├── README.md
-├── .agents/
-│   └── skills/
-│       ├── deploy-docker-compose/
-│       ├── deploy-docker-swarm/
-│       ├── deploy-kubernetes/
-│       └── deploy-helm/
-├── common/
-│   ├── config/
-│   └── env/
-├── docker-compose/
-├── docker-swarm/
-├── kubernetes/
-│   ├── README.md
-│   └── base/
-└── helm/
-    ├── README.md
-    └── thecrowler/
-```
-
-## Project Links
-
-Main CROWler repository:
-
-https://github.com/pzaino/thecrowler
-
-Deployment support:
-
-https://github.com/pzaino/thecrowler-deployment-support
-
-Docker Hub:
-
-https://hub.docker.com/u/zfpsystems

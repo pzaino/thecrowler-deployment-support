@@ -692,7 +692,7 @@ http_headers:
 # Path to ruleset JSON Schema (used for rules validation)
 # this option very rarely needs to be changed unless you are placing
 # the schema in a custom location or using a modified version of the schema for some reason
-rulesets_schema_path: "./schemas/crowler-rulesets-schema.json"
+rulesets_schema_path: "./schemas/crowler-ruleset-schema.json"
 
 rulesets:
   # local | http | s3 (you can mix multiple entries)

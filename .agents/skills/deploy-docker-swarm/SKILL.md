@@ -1,7 +1,7 @@
 ---
 name: deploy-docker-swarm
-description: Deploy, configure, scale, validate, update, inspect, or troubleshoot The CROWler with Docker Swarm using official zfpsystems images. Use for CROWler Swarm stack generation, multi-node deployment, overlay networking, runtime config.yaml distribution, service and task inspection, resource limits, persistent-storage planning, updates, and troubleshooting. Do not use for ordinary single-host Docker Compose deployment or for building CROWler images from source.
-compatibility: Requires thecrowler-deployment-support, Bash, Docker Engine with Swarm support, and access to a Swarm manager.
+description: Deploy, configure, scale, validate, update, inspect, or troubleshoot The CROWler with Docker Swarm using official zfpsystems images. Use for stack generation, multi-node deployment, overlay networking, runtime config.yaml distribution, versioned user agents/plugins/rules/support distribution, service inspection, resource limits, storage planning, updates, and troubleshooting. Do not use for ordinary single-host Docker Compose deployment or for building CROWler images from source.
+compatibility: Requires thecrowler-deployment-support, Bash, Docker Engine with Swarm support, access to a Swarm manager, and sha256sum or shasum.
 metadata:
   project: thecrowler
   repository: pzaino/thecrowler-deployment-support
@@ -10,48 +10,97 @@ metadata:
 
 # Deploy The CROWler with Docker Swarm
 
+## Execution Root
+
+All commands must run from the repository root.
+
+Expected root-level paths include:
+
+```text
+.env
+config.yaml
+docker-compose.yml
+user/
+```
+
+Never `cd docker-compose` or `cd docker-swarm` before invoking deployment
+commands.
+
 ## Sources of Truth
 
 Inspect:
 
 * `docker-compose/generate-docker-compose.sh`
 * `docker-swarm/README.md`
+* `user/README.md`
 * `common/env/env_template`
 * `common/config/config.default`
 * `common/config/config.default.remote`
 * `AGENTS.md`
 
-## Required Deployment Files
-
-A normal Swarm deployment workspace requires:
-
-```text
-.env
-config.yaml
-docker-compose.yml
-```
-
-Create `config.yaml` from exactly one of:
-
-* `common/config/config.default`
-* `common/config/config.default.remote`
-
-Do not silently choose the mode.
-
-## Runtime Config Contract
+## Runtime Configuration
 
 Engine, API, and Events require:
 
-`/app/config.yaml`
+```text
+/app/config.yaml
+```
 
-The generated stack must use Docker `configs` to distribute the selected
-deployment-level `config.yaml`.
+In Swarm mode the generator content-hashes `config.yaml` because Docker Swarm
+configs are immutable.
 
-Do not replace this with a node-local bind mount unless explicitly required.
+A changed `config.yaml` must result in a new Swarm config object while keeping
+the same `/app/config.yaml` target.
 
-## Generate
+## User Content
 
-Export the deployment environment on the manager:
+Canonical host paths:
+
+```text
+user/agents
+user/plugins
+user/rules
+user/support
+```
+
+Canonical container targets:
+
+```text
+/app/user/agents
+/app/user/plugins
+/app/user/rules
+/app/user/support
+```
+
+Never emit node-local bind mounts for these paths in Swarm mode.
+
+Instead, the generator must:
+
+1. enumerate direct, non-hidden regular files
+2. reject filenames outside `[A-Za-z0-9._-]+`
+3. reject files larger than 500 KiB
+4. hash each file's content
+5. declare a versioned top-level Swarm config
+6. attach it to Engine, API, and Events at the stable `/app/user/...` target
+
+Do not put secrets in Docker configs.
+
+For files larger than 500 KiB, require an external/shared Swarm volume rather
+than silently falling back to a node-local bind mount.
+
+
+Require the CROWler images to provide the stable parent directories:
+
+```text
+/app/user/agents
+/app/user/plugins
+/app/user/rules
+/app/user/support
+```
+
+## Environment
+
+Before validation or deployment:
 
 ```bash
 set -a
@@ -59,7 +108,7 @@ set -a
 set +a
 ```
 
-Generate:
+## Generate
 
 ```bash
 ./docker-compose/generate-docker-compose.sh \
@@ -78,16 +127,16 @@ docker stack config -c docker-compose.yml
 
 Verify:
 
-* official images and tags
-* Engine and VDI counts
-* Engine-to-VDI mapping
+* no `./user/...` bind mounts
+* hashed runtime config
+* hashed user configs
+* stable `/app/config.yaml`
+* stable `/app/user/...` targets
 * overlay networks
-* `crowler_config`
-* `/app/config.yaml` targets
 * resource limits
-* persistent volumes
-* optional services
+* volumes
 * ports
+* requested optional services
 
 ## Deploy
 
@@ -98,25 +147,17 @@ docker stack deploy \
   crowler
 ```
 
-Use `--with-registry-auth` only when required.
-
 ## Inspect
 
 ```bash
 docker stack services crowler
 docker stack ps crowler --no-trunc
-```
-
-For failures:
-
-```bash
-docker service ps SERVICE --no-trunc
-docker service logs SERVICE
+docker config ls --filter label=com.docker.stack.namespace=crowler
 ```
 
 ## Storage
 
-Local Docker volumes are node-local.
+Local Docker volumes remain node-local.
 
 Do not assume PostgreSQL data follows a rescheduled task.
 
@@ -125,6 +166,7 @@ Do not assume PostgreSQL data follows a rescheduled task.
 Never:
 
 * initialize or recreate a Swarm without explicit intent
+* overwrite `.env` or `config.yaml`
 * delete persistent volumes routinely
-* overwrite `config.yaml` or `.env`
-* replace official images with source builds because workers cannot pull them
+* place secrets in user-content Swarm configs
+* fall back to node-local user-content bind mounts on worker nodes

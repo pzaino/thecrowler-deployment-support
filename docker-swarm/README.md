@@ -1,197 +1,109 @@
-# Deploying The CROWler with Docker Swarm
+# Deploying The CROWler with Docker Compose
 
-Docker Swarm uses the same CROWler deployment generator as Docker Compose, with
-Swarm mode enabled.
+This directory contains the Docker Compose deployment tooling for **The
+CROWler**.
 
-Run all commands from the repository root.
+## Repository-Root Execution Contract
 
-## Requirements
+Run every command from the repository root.
 
-You need:
+The normal deployment workspace is:
 
-* Docker Engine with Swarm support
-* access to a Swarm manager
-* Bash
-* registry connectivity from the nodes that may run CROWler tasks
+```text
+.env
+config.yaml
+docker-compose.yml
+user/
+```
 
-## 1. Create `.env`
+The generator intentionally fails when invoked from another directory.
+
+## Quick Start
+
+From the repository root:
 
 ```bash
 cp common/env/env_template .env
 ```
 
-Edit `.env`.
-
-## 2. Create `config.yaml`
-
-For local configuration:
+Choose one:
 
 ```bash
 cp common/config/config.default config.yaml
 ```
 
-For remote configuration bootstrap:
+or:
 
 ```bash
 cp common/config/config.default.remote config.yaml
 ```
 
-Edit the selected `config.yaml`.
+Edit `.env` and `config.yaml`.
 
-The generated stack distributes this configuration to Engine, API, and Events
-as `/app/config.yaml` using a Docker config.
+Add custom deployment content under:
 
-This is intentionally not a host bind mount, so Swarm can distribute the
-configuration to tasks scheduled on other nodes.
-
-## 3. Export Environment Variables
-
-`docker stack deploy` does not perform `.env` interpolation in the same way as
-`docker compose`.
-
-Export the environment on the manager:
-
-```bash
-set -a
-. ./.env
-set +a
+```text
+user/
+├── agents/
+├── plugins/
+├── rules/
+└── support/
 ```
 
-The service-level `env_file` remains a separate mechanism.
-
-## 4. Generate the Stack
+Generate:
 
 ```bash
 ./docker-compose/generate-docker-compose.sh \
   -e=2 \
   -v=2 \
   --prom=yes \
-  --pg=yes \
-  --swarm=yes
+  --pg=yes
 ```
 
-This creates:
+Validate and start:
+
+```bash
+docker compose config
+docker compose pull
+docker compose up -d
+```
+
+## User Content
+
+In ordinary Docker Compose mode the generator uses read-only bind mounts:
 
 ```text
-docker-compose.yml
+./user/agents   -> /app/user/agents
+./user/plugins  -> /app/user/plugins
+./user/rules    -> /app/user/rules
+./user/support  -> /app/user/support
 ```
 
-## 5. Validate
+Because the generated `docker-compose.yml` is in the repository root, these
+relative host paths resolve from the repository root.
 
-```bash
-docker stack config -c docker-compose.yml
-```
+Docker Swarm uses a different distribution mechanism. It does not use these
+node-local bind mounts.
 
-Verify:
+## Runtime Configuration
 
-* official CROWler images
-* expected image versions
-* Engine and VDI counts
-* Engine-to-VDI mapping
-* overlay networks
-* resource limits
-* persistent volumes
-* the `crowler_config` Docker config
-* optional services
-* published ports
-
-## 6. Deploy
-
-```bash
-docker stack deploy \
-  -c docker-compose.yml \
-  --resolve-image always \
-  crowler
-```
-
-If worker nodes require registry credentials propagated from the manager:
-
-```bash
-docker stack deploy \
-  -c docker-compose.yml \
-  --resolve-image always \
-  --with-registry-auth \
-  crowler
-```
-
-## 7. Inspect
-
-```bash
-docker stack services crowler
-docker stack ps crowler --no-trunc
-```
-
-For a failing service:
-
-```bash
-docker service ps SERVICE --no-trunc
-docker service logs SERVICE
-```
-
-## Swarm-Specific Generator Changes
-
-With:
+The deployment-level `config.yaml` is made available to Engine, API, and
+Events at:
 
 ```text
---swarm=yes
+/app/config.yaml
 ```
 
-the generator:
-
-* uses overlay networks
-* emits `deploy.resources.limits`
-* emits a Swarm restart policy
-* omits Compose `container_name`
-* omits Compose `pull_policy`
-* preserves the same official CROWler images
-* preserves Docker `configs` delivery of `config.yaml`
-
-## CROWler Configuration
-
-The stack contains:
-
-```yaml
-configs:
-  crowler_config:
-    file: "config.yaml"
-```
-
-Engine, API, and Events receive:
-
-```yaml
-configs:
-  - source: crowler_config
-    target: /app/config.yaml
-```
-
-Swarm creates and distributes the configuration through the stack.
-
-Do not replace this with a node-local bind mount unless the deployment
-explicitly requires that model.
-
-## Persistent Storage
-
-Default Docker local volumes are node-local.
-
-Pay particular attention to PostgreSQL. A local `db_data` volume does not
-automatically move if Swarm reschedules PostgreSQL to another node.
-
-For production deployments, consider:
-
-* constraining PostgreSQL to an appropriate persistent node
-* using external PostgreSQL
-* using suitable shared or distributed storage
-
-## Remove the Stack
+## Stop
 
 ```bash
-docker stack rm crowler
+docker compose down
 ```
 
-This does not mean persistent volumes should be deleted.
+Do not add `-v` unless persistent data deletion is explicitly intended.
 
-## Docker Compose
+## Docker Swarm
 
-For single-host Compose deployment use:
+See:
 
-[docker-compose/README.md](../docker-compose/README.md)
+[docker-swarm/README.md](../docker-swarm/README.md)

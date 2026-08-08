@@ -1,63 +1,81 @@
 # Docker Swarm Deployment Reference
 
-## Canonical Files
+## Repository Root
 
-| Purpose | Path |
-| --- | --- |
-| Shared generator | `docker-compose/generate-docker-compose.sh` |
-| Swarm guide | `docker-swarm/README.md` |
-| Environment template | `common/env/env_template` |
-| Local config | `common/config/config.default` |
-| Remote bootstrap | `common/config/config.default.remote` |
-| Agent rules | `AGENTS.md` |
+All commands run from:
 
-## Deployment Workspace
+```text
+thecrowler-deployment-support/
+```
+
+Root-level inputs/output:
 
 ```text
 .env
 config.yaml
 docker-compose.yml
+user/
 ```
 
 ## Generator
 
-Enable Swarm mode with:
+```text
+docker-compose/generate-docker-compose.sh
+```
+
+Enable Swarm mode:
 
 ```text
 --swarm=yes
 ```
 
-Swarm mode uses:
-
-```text
-overlay networks
-deploy.resources.limits
-deploy.restart_policy
-no container_name
-no pull_policy
-```
-
 ## Runtime Config
 
-The generated stack declares:
+Swarm configs are immutable.
 
-```yaml
-configs:
-  crowler_config:
-    file: "config.yaml"
+The generator uses a content-hashed config key such as:
+
+```text
+crowler_config_012345abcdef
 ```
 
-and delivers it to Engine, API, and Events at:
+and mounts it at:
 
 ```text
 /app/config.yaml
 ```
 
-Docker Swarm distributes this config to service tasks.
+## User Content
+
+Host:
+
+```text
+user/agents
+user/plugins
+user/rules
+user/support
+```
+
+Container:
+
+```text
+/app/user/agents
+/app/user/plugins
+/app/user/rules
+/app/user/support
+```
+
+Each direct user file becomes a content-hashed Swarm config.
+
+Maximum size:
+
+```text
+500 KiB per file
+```
+
+Do not use Swarm configs for secrets.
 
 ## Environment
-
-Before `docker stack config` or `docker stack deploy`:
 
 ```bash
 set -a
@@ -82,18 +100,11 @@ docker stack deploy -c docker-compose.yml --resolve-image always crowler
 ```bash
 docker stack services crowler
 docker stack ps crowler --no-trunc
-docker service ps SERVICE --no-trunc
-docker service logs SERVICE
+docker config ls --filter label=com.docker.stack.namespace=crowler
 ```
 
 ## Persistent Storage
 
 Default local Docker volumes are node-local.
 
-Pay particular attention to:
-
-```text
-db_data
-```
-
-Do not assume it follows PostgreSQL when Swarm reschedules the service.
+`db_data` requires explicit persistence planning in a multi-node Swarm.
