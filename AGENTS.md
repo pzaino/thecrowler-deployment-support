@@ -44,6 +44,7 @@ Do not introduce local image builds unless explicitly requested.
 * Kubernetes: `kubernetes/README.md`
 * Helm: `helm/README.md`
 * HashiCorp Nomad: `nomad/README.md`
+* Terraform: `terraform/README.md`
 
 ## Runtime Configuration
 
@@ -100,10 +101,7 @@ Do not require `user/` directories on every Nomad client.
 The Nomad CLI must be run from the repository root so HCL `file()` and
 `fileset()` can consume root `config.yaml` and `user/*` locally.
 
-Render those files into allocation-local directories and mount the resulting
-paths at `/app/user/...`.
-
-Use native Nomad service discovery by default; do not make Consul mandatory.
+Use native Nomad service discovery by default.
 
 Use Nomad Variables at:
 
@@ -111,25 +109,45 @@ Use Nomad Variables at:
 nomad/jobs/crowler/env
 ```
 
-for the root `.env` values imported by `nomad/bootstrap-env.sh`.
-
 Bundled PostgreSQL uses a dynamic host volume. Do not describe local dynamic
 host volumes as highly available storage.
 
-Local VDI discovery requires the effective CROWler config to consume:
+### Terraform
+
+Terraform orchestrates existing deployment definitions.
+
+Nomad Terraform must reuse:
 
 ```text
-SELENIUM_HOST
+nomad/crowler.nomad.hcl
 ```
 
-Do not silently deploy `localhost` as the VDI host in a multi-node Nomad
-deployment.
+Helm Terraform must reuse:
+
+```text
+helm/thecrowler/
+```
+
+Run through:
+
+```text
+./terraform/run.sh <nomad|helm> ...
+```
+
+from the repository root.
+
+Use provider write-only attributes for sensitive root `.env` payloads.
+
+Do not duplicate CROWler workload topology as parallel Terraform resources.
+
+Protect persistent database volumes from automatic Terraform destruction.
 
 ## Credentials
 
 Never invent credentials.
 
-Never commit `.env`, production Secrets, private Helm values, or credentials.
+Never commit `.env`, production Secrets, private Helm values, Terraform
+tfvars/state, or credentials.
 
 Do not put credentials inside `user/`.
 
@@ -168,6 +186,15 @@ Nomad:
 ```bash
 ./nomad/deploy.sh validate
 ./nomad/deploy.sh plan
+```
+
+Terraform:
+
+```bash
+./terraform/run.sh nomad validate
+./terraform/run.sh nomad plan
+./terraform/run.sh helm validate
+./terraform/run.sh helm plan
 ```
 
 Validation does not prove runtime health.

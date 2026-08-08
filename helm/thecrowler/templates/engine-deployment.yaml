@@ -21,6 +21,9 @@ spec:
       annotations:
         checksum/config: {{ include "thecrowler.configChecksum" . | quote }}
         checksum/secret: {{ include "thecrowler.secretChecksum" . | quote }}
+        {{- if .Values.userContent.enabled }}
+        checksum/user-content: {{ .Values.userContent.rolloutToken | quote }}
+        {{- end }}
     spec:
       automountServiceAccountToken: false
       containers:
@@ -86,6 +89,20 @@ spec:
               mountPath: /app/config.yaml
               subPath: config.yaml
               readOnly: true
+            {{- if .Values.userContent.enabled }}
+            - name: user-agents
+              mountPath: /app/user/agents
+              readOnly: true
+            - name: user-plugins
+              mountPath: /app/user/plugins
+              readOnly: true
+            - name: user-rules
+              mountPath: /app/user/rules
+              readOnly: true
+            - name: user-support
+              mountPath: /app/user/support
+              readOnly: true
+            {{- end }}
             - name: engine-data
               mountPath: /app/data
       volumes:
@@ -95,6 +112,20 @@ spec:
             items:
               - key: config.yaml
                 path: config.yaml
+        {{- if .Values.userContent.enabled }}
+        - name: user-agents
+          configMap:
+            name: {{ required "userContent.agentsConfigMap is required when userContent.enabled=true" .Values.userContent.agentsConfigMap }}
+        - name: user-plugins
+          configMap:
+            name: {{ required "userContent.pluginsConfigMap is required when userContent.enabled=true" .Values.userContent.pluginsConfigMap }}
+        - name: user-rules
+          configMap:
+            name: {{ required "userContent.rulesConfigMap is required when userContent.enabled=true" .Values.userContent.rulesConfigMap }}
+        - name: user-support
+          configMap:
+            name: {{ required "userContent.supportConfigMap is required when userContent.enabled=true" .Values.userContent.supportConfigMap }}
+        {{- end }}
         - name: engine-data
           emptyDir: {}
       {{- with .Values.engine.nodeSelector }}

@@ -1,0 +1,32 @@
+# Non-secret Terraform overrides for the Nomad backend.
+#
+# Copy:
+#   cp terraform/nomad/terraform.tfvars.example terraform/nomad/terraform.tfvars
+#
+# terraform/run.sh supplies image versions and sensitive root .env values.
+# Never put credentials here.
+
+nomad_address = "http://127.0.0.1:4646"
+nomad_region  = ""
+
+namespace   = "default"
+datacenters = ["dc1"]
+
+engine_count = 2
+vdi_count    = 2
+
+database_enabled    = true
+api_enabled         = true
+events_enabled      = true
+jaeger_enabled      = true
+pushgateway_enabled = false
+
+external_db_host         = ""
+external_selenium_host   = ""
+external_prometheus_host = ""
+
+manage_database_volume   = true
+database_volume_source   = "crowler-db-data"
+database_volume_capacity = "10GiB"
+
+detach = false

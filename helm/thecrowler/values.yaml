@@ -24,6 +24,18 @@ secrets:
     crowlerDbPassword: ""
     seleniumPassword: ""
 
+# Optional deployment-specific CROWler content.
+#
+# These ConfigMaps are managed externally (Terraform, kubectl, GitOps, etc.)
+# and mounted without masking the built-in /app/{agents,plugins,rules,support}.
+userContent:
+  enabled: false
+  agentsConfigMap: ""
+  pluginsConfigMap: ""
+  rulesConfigMap: ""
+  supportConfigMap: ""
+  rolloutToken: ""
+
 database:
   enabled: true
   image:

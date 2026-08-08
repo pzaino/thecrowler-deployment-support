@@ -1,0 +1,30 @@
+# Non-secret Terraform overrides for the Helm/Kubernetes backend.
+#
+# Copy:
+#   cp terraform/helm/terraform.tfvars.example terraform/helm/terraform.tfvars
+#
+# terraform/run.sh supplies image versions and root .env secret values.
+# Never put credentials here.
+
+kubeconfig_path = "~/.kube/config"
+kube_context     = ""
+
+namespace        = "crowler"
+create_namespace = true
+release_name     = "crowler"
+
+engine_replicas = 2
+vdi_replicas    = 2
+api_replicas    = 1
+events_replicas = 1
+
+database_enabled       = true
+external_db_host       = ""
+database_storage_size  = "10Gi"
+database_storage_class = ""
+
+jaeger_enabled      = true
+pushgateway_enabled = true
+
+atomic          = true
+timeout_seconds = 600

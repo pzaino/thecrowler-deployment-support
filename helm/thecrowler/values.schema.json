@@ -95,6 +95,37 @@
         }
       }
     },
+    "userContent": {
+      "type": "object",
+      "required": [
+        "enabled",
+        "agentsConfigMap",
+        "pluginsConfigMap",
+        "rulesConfigMap",
+        "supportConfigMap",
+        "rolloutToken"
+      ],
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "agentsConfigMap": {
+          "type": "string"
+        },
+        "pluginsConfigMap": {
+          "type": "string"
+        },
+        "rulesConfigMap": {
+          "type": "string"
+        },
+        "supportConfigMap": {
+          "type": "string"
+        },
+        "rolloutToken": {
+          "type": "string"
+        }
+      }
+    },
     "database": {
       "type": "object",
       "required": [

@@ -13,6 +13,7 @@ Deployment-specific operational workflows belong in individual skills.
 | `deploy-kubernetes` | Deploy and troubleshoot raw Kubernetes manifests | Available |
 | `deploy-helm` | Install, configure, upgrade, and troubleshoot the CROWler Helm chart | Available |
 | `deploy-nomad` | Deploy and troubleshoot HashiCorp Nomad installations | Available |
+| `deploy-terraform` | Orchestrate Nomad and Helm/Kubernetes deployments with Terraform | Available |
 | `validate-deployment` | Cross-backend deployment validation | Planned |
 
 ## Skill Location
@@ -30,6 +31,3 @@ agents/skills/
 ```
 
 Rename `agents/` to `.agents/` when merging.
-
-Each skill should keep workflow instructions in `SKILL.md` and detailed
-technical facts in `references/`.

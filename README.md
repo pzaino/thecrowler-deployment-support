@@ -16,6 +16,7 @@ https://github.com/pzaino/thecrowler
 | Kubernetes | **Available** | [Kubernetes](kubernetes/README.md) |
 | Helm | **Available** | [Helm](helm/README.md) |
 | HashiCorp Nomad | **Available** | [HashiCorp Nomad](nomad/README.md) |
+| Terraform | **Available** | [Terraform](terraform/README.md) |
 
 ## Repository Root Is the Deployment Root
 
@@ -38,7 +39,8 @@ thecrowler-deployment-support/
 ├── docker-swarm/
 ├── kubernetes/
 ├── helm/
-└── nomad/
+├── nomad/
+└── terraform/
 ```
 
 Create `.env`:
@@ -106,12 +108,17 @@ The Nomad backend uses:
 * dynamic host volumes for bundled PostgreSQL
 * allocation-local delivery of `config.yaml` and `user/*`
 
-See:
+See [HashiCorp Nomad deployment guide](nomad/README.md).
 
-[HashiCorp Nomad deployment guide](nomad/README.md)
+## Terraform
+
+Terraform orchestrates the existing Nomad and Helm/Kubernetes deployment
+definitions rather than duplicating their workload topology.
+
+See [Terraform deployment guide](terraform/README.md).
 
 ## Contributing
 
-The CROWler has already thousands of active users, or so GitHub and Docker Hub stats say. 
-However, if you find anything wrong with any of the deployment support tools in this 
+The CROWler has already thousands of active users, or so GitHub and Docker Hub stats say.
+However, if you find anything wrong with any of the deployment support tools in this
 repository, please feel free to fix the issue and open an PR with the fix, thank you!

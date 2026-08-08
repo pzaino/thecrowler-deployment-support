@@ -41,18 +41,20 @@ Swarm config files must be at most 500 KiB each.
 
 Nomad does not require the repository directories to exist on every client.
 
-When the operator runs the Nomad CLI from the repository root, HCL `fileset()`
-enumerates user files and `file()` reads them locally. Nomad embeds them into
-the submitted job, renders them into allocation-local directories, and the
-Docker driver mounts those directories read-only at `/app/user/...`.
+The Nomad HCL parser reads them on the operator machine, renders them into the
+allocation, and mounts allocation-local content at `/app/user/...`.
 
-Use artifact/object storage or shared volumes for large binaries, datasets, or
-frequently changing support content.
+## Terraform
 
-## Kubernetes / Helm
+Terraform Nomad reuses the same Nomad content-delivery mechanism and adds file
+hashes so changes are visible to Terraform state planning.
 
-Kubernetes and Helm use their backend-specific configuration/volume delivery
-mechanisms while preserving the same `/app/user/...` runtime contract.
+Terraform Helm creates four Kubernetes ConfigMaps from root `user/` and passes
+them to the Helm chart `userContent` contract.
+
+Kubernetes ConfigMap delivery is intended for small UTF-8 text files. Large or
+binary support data should use persistent/shared storage or object/artifact
+storage.
 
 ## File Placement
 
