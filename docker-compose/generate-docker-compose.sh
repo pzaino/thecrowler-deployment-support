@@ -656,8 +656,6 @@ EOF
       - "$HOST_PORT_START4:9222"
     volumes:
       - /dev/shm:/dev/shm
-    expose:
-      - "9222"
     networks:
       - $NETWORK_NAME
 EOF
