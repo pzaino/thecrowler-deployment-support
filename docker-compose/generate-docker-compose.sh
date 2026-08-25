@@ -645,7 +645,7 @@ if [ "$vdi_count" != "0" ]; then
       - TZ=\${VDI_TZ:-UTC}
       - MICROSERVICE_NAME=crowler-vdi-$i
     shm_size: "2g"
-    image: zfpsystems/crowler-vdi:\${CROWLER_VDI_VERSION:-4.28.1-20260807}
+    image: zfpsystems/crowler-vdi:\${CROWLER_VDI_VERSION:-4.28.1-20260819}
 EOF
             emit_pull_policy "    "
             cat <<EOF
