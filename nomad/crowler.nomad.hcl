@@ -159,12 +159,12 @@ variable "pushgateway_memory" {
 
 locals {
   # These functions run in the local Nomad CLI parsing context.
-  user_agents  = tolist(fileset("./user/agents", "*.{yaml,yml,json}"))
-  user_plugins = tolist(fileset("./user/plugins", "*.js"))
-  user_rules   = tolist(fileset("./user/rules", "*.{yaml,yml,json}"))
+  user_agents  = fileset("./user/agents", "*.{yaml,yml,json}")
+  user_plugins = fileset("./user/plugins", "*.js")
+  user_rules   = fileset("./user/rules", "*.{yaml,yml,json}")
   user_support = [
     for filename in fileset("./user/support", "*") : filename
-    if !startswith(filename, ".")
+    if filename != ".gitkeep"
   ]
 
   # Environment imported by nomad/bootstrap-env.sh is encrypted in a Nomad
@@ -280,7 +280,7 @@ job "crowler" {
     }
 
     dynamic "volume" {
-      for_each = var.database_enabled ? toset(["db-data"]) : toset([])
+      for_each = var.database_enabled ? ["db-data"] : []
       labels   = [volume.value]
 
       content {
@@ -345,7 +345,7 @@ job "crowler" {
       }
 
       dynamic "volume_mount" {
-        for_each = var.database_enabled ? toset(["db-data"]) : toset([])
+        for_each = var.database_enabled ? ["db-data"] : []
         iterator = db_volume
 
         content {
