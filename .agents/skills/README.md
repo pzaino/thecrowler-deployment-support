@@ -46,5 +46,5 @@ Each skill directory contains a `SKILL.md` with YAML front matter describing its
 Validate the complete skill set with:
 
 ```bash
-./scripts/validate-deployment-support.sh skills
+bash ./scripts/validate-deployment-support.sh skills
 ```
