@@ -1,0 +1,256 @@
+name: Deploy The CROWler
+
+on:
+  workflow_dispatch:
+    inputs:
+      backend:
+        description: Deployment backend
+        required: true
+        type: choice
+        options:
+          - helm
+          - nomad
+      environment:
+        description: GitHub Environment containing deployment credentials and approvals
+        required: true
+        default: production
+        type: string
+      operation:
+        description: Deployment operation
+        required: true
+        type: choice
+        options:
+          - plan
+          - apply
+      runner:
+        description: Runner label. Use self-hosted when the target is only reachable from a private network.
+        required: true
+        default: ubuntu-latest
+        type: string
+      crowler_version:
+        description: CROWler image version override. Leave empty to use common/env/env_template.
+        required: false
+        type: string
+      vdi_version:
+        description: CROWler VDI image version override. Leave empty to use common/env/env_template.
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: crowler-deploy-${{ inputs.environment }}-${{ inputs.backend }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: ${{ inputs.operation }} ${{ inputs.backend }} to ${{ inputs.environment }}
+    runs-on: ${{ inputs.runner }}
+    environment: ${{ inputs.environment }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Prepare runtime configuration
+        shell: bash
+        env:
+          CROWLER_CONFIG: ${{ secrets.CROWLER_CONFIG }}
+          CROWLER_ENV: ${{ secrets.CROWLER_ENV }}
+          CROWLER_VERSION_OVERRIDE: ${{ inputs.crowler_version }}
+          CROWLER_VDI_VERSION_OVERRIDE: ${{ inputs.vdi_version }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "$CROWLER_CONFIG" ]; then
+            echo "ERROR: GitHub Environment secret CROWLER_CONFIG is required." >&2
+            exit 1
+          fi
+
+          if [ -z "$CROWLER_ENV" ]; then
+            echo "ERROR: GitHub Environment secret CROWLER_ENV is required." >&2
+            exit 1
+          fi
+
+          printf '%s\n' "$CROWLER_CONFIG" > config.yaml
+          printf '%s\n' "$CROWLER_ENV" > .env
+          chmod 600 .env config.yaml
+
+          if [ -n "$CROWLER_VERSION_OVERRIDE" ]; then
+            if grep -q '^CROWLER_VERSION=' .env; then
+              sed -i "s|^CROWLER_VERSION=.*|CROWLER_VERSION=$CROWLER_VERSION_OVERRIDE|" .env
+            else
+              printf 'CROWLER_VERSION=%s\n' "$CROWLER_VERSION_OVERRIDE" >> .env
+            fi
+          fi
+
+          if [ -n "$CROWLER_VDI_VERSION_OVERRIDE" ]; then
+            if grep -q '^CROWLER_VDI_VERSION=' .env; then
+              sed -i "s|^CROWLER_VDI_VERSION=.*|CROWLER_VDI_VERSION=$CROWLER_VDI_VERSION_OVERRIDE|" .env
+            else
+              printf 'CROWLER_VDI_VERSION=%s\n' "$CROWLER_VDI_VERSION_OVERRIDE" >> .env
+            fi
+          fi
+
+      - name: Set up Helm
+        if: inputs.backend == 'helm'
+        uses: azure/setup-helm@v4
+
+      - name: Set up kubectl
+        if: inputs.backend == 'helm'
+        uses: azure/setup-kubectl@v4
+
+      - name: Configure Kubernetes access
+        if: inputs.backend == 'helm'
+        shell: bash
+        env:
+          KUBECONFIG_CONTENT: ${{ secrets.KUBECONFIG }}
+        run: |
+          set -euo pipefail
+          if [ -z "$KUBECONFIG_CONTENT" ]; then
+            echo "ERROR: GitHub Environment secret KUBECONFIG is required for Helm deployment." >&2
+            exit 1
+          fi
+          mkdir -p "$HOME/.kube"
+          printf '%s\n' "$KUBECONFIG_CONTENT" > "$HOME/.kube/config"
+          chmod 600 "$HOME/.kube/config"
+          kubectl version --client
+          kubectl cluster-info
+
+      - name: Validate Helm deployment
+        if: inputs.backend == 'helm'
+        shell: bash
+        run: |
+          set -euo pipefail
+          helm lint helm/thecrowler
+          helm template crowler helm/thecrowler --namespace crowler >/dev/null
+
+      - name: Plan Helm deployment
+        if: inputs.backend == 'helm' && inputs.operation == 'plan'
+        shell: bash
+        run: |
+          set -euo pipefail
+          set -a
+          . ./.env
+          set +a
+
+          kubectl create namespace crowler --dry-run=client -o yaml | kubectl apply --dry-run=server -f -
+          kubectl create configmap crowler-config \
+            -n crowler \
+            --from-file=config.yaml=./config.yaml \
+            --dry-run=client -o yaml | kubectl apply --dry-run=server -f -
+
+          kubectl create secret generic crowler-secrets \
+            -n crowler \
+            --from-literal=DOCKER_POSTGRES_PASSWORD="$DOCKER_POSTGRES_PASSWORD" \
+            --from-literal=DOCKER_CROWLER_DB_USER="$DOCKER_CROWLER_DB_USER" \
+            --from-literal=DOCKER_CROWLER_DB_PASSWORD="$DOCKER_CROWLER_DB_PASSWORD" \
+            --from-literal=SEL_PASSWD="$SEL_PASSWD" \
+            --dry-run=client -o yaml | kubectl apply --dry-run=server -f -
+
+          helm upgrade --install crowler helm/thecrowler \
+            --namespace crowler \
+            --create-namespace \
+            --dry-run=server
+
+      - name: Apply Helm deployment
+        if: inputs.backend == 'helm' && inputs.operation == 'apply'
+        shell: bash
+        run: |
+          set -euo pipefail
+          set -a
+          . ./.env
+          set +a
+
+          kubectl create namespace crowler --dry-run=client -o yaml | kubectl apply -f -
+
+          kubectl create configmap crowler-config \
+            -n crowler \
+            --from-file=config.yaml=./config.yaml \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+          kubectl create secret generic crowler-secrets \
+            -n crowler \
+            --from-literal=DOCKER_POSTGRES_PASSWORD="$DOCKER_POSTGRES_PASSWORD" \
+            --from-literal=DOCKER_CROWLER_DB_USER="$DOCKER_CROWLER_DB_USER" \
+            --from-literal=DOCKER_CROWLER_DB_PASSWORD="$DOCKER_CROWLER_DB_PASSWORD" \
+            --from-literal=SEL_PASSWD="$SEL_PASSWD" \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+          rollout_token="$(date +%s)"
+          helm upgrade --install crowler helm/thecrowler \
+            --namespace crowler \
+            --create-namespace \
+            --set-string config.rolloutToken="$rollout_token" \
+            --set-string secrets.rolloutToken="$rollout_token"
+
+          kubectl rollout status deployment/crowler-engine -n crowler --timeout=10m
+          kubectl rollout status deployment/crowler-api -n crowler --timeout=10m
+          kubectl rollout status deployment/crowler-events -n crowler --timeout=10m
+
+      - name: Install Nomad CLI
+        if: inputs.backend == 'nomad'
+        shell: bash
+        env:
+          NOMAD_VERSION: ${{ vars.NOMAD_VERSION || '1.10.4' }}
+        run: |
+          set -euo pipefail
+          arch="$(uname -m)"
+          case "$arch" in
+            x86_64) nomad_arch=amd64 ;;
+            aarch64|arm64) nomad_arch=arm64 ;;
+            *) echo "ERROR: unsupported runner architecture: $arch" >&2; exit 1 ;;
+          esac
+
+          curl -fsSLo /tmp/nomad.zip \
+            "https://releases.hashicorp.com/nomad/${NOMAD_VERSION}/nomad_${NOMAD_VERSION}_linux_${nomad_arch}.zip"
+          unzip -q /tmp/nomad.zip -d /tmp/nomad-bin
+          sudo install -m 0755 /tmp/nomad-bin/nomad /usr/local/bin/nomad
+          nomad version
+
+      - name: Configure Nomad access
+        if: inputs.backend == 'nomad'
+        shell: bash
+        env:
+          NOMAD_ADDR_SECRET: ${{ secrets.NOMAD_ADDR }}
+          NOMAD_TOKEN_SECRET: ${{ secrets.NOMAD_TOKEN }}
+          NOMAD_NAMESPACE_SECRET: ${{ secrets.NOMAD_NAMESPACE }}
+        run: |
+          set -euo pipefail
+          if [ -z "$NOMAD_ADDR_SECRET" ]; then
+            echo "ERROR: GitHub Environment secret NOMAD_ADDR is required for Nomad deployment." >&2
+            exit 1
+          fi
+          echo "NOMAD_ADDR=$NOMAD_ADDR_SECRET" >> "$GITHUB_ENV"
+          if [ -n "$NOMAD_TOKEN_SECRET" ]; then
+            echo "NOMAD_TOKEN=$NOMAD_TOKEN_SECRET" >> "$GITHUB_ENV"
+          fi
+          if [ -n "$NOMAD_NAMESPACE_SECRET" ]; then
+            echo "NOMAD_NAMESPACE=$NOMAD_NAMESPACE_SECRET" >> "$GITHUB_ENV"
+          fi
+
+      - name: Validate Nomad deployment
+        if: inputs.backend == 'nomad'
+        shell: bash
+        run: ./nomad/deploy.sh validate
+
+      - name: Plan Nomad deployment
+        if: inputs.backend == 'nomad' && inputs.operation == 'plan'
+        shell: bash
+        run: ./nomad/deploy.sh plan
+
+      - name: Apply Nomad deployment
+        if: inputs.backend == 'nomad' && inputs.operation == 'apply'
+        shell: bash
+        run: |
+          set -euo pipefail
+          ./nomad/deploy.sh run
+          ./nomad/deploy.sh status
+
+      - name: Clean sensitive files
+        if: always()
+        shell: bash
+        run: |
+          rm -f .env config.yaml
+          rm -f "$HOME/.kube/config"
