@@ -80,7 +80,7 @@ jobs:
           sed -i "s/^SEL_PASSWD=.*/SEL_PASSWD='ci-only'/" .env
 
       - name: Terraform fmt
-        run: terraform fmt -check -recursive terraform/${{ matrix.backend }}
+        run: terraform fmt -check -diff -recursive terraform/${{ matrix.backend }}
 
       - name: Terraform init without backend
         run: terraform -chdir=terraform/${{ matrix.backend }} init -backend=false -input=false
