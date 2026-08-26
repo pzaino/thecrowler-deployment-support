@@ -22,7 +22,7 @@ spec:
       automountServiceAccountToken: false
       containers:
         - name: crowler-vdi
-          image: zfpsystems/crowler-vdi:4.28.1-20260807
+          image: zfpsystems/crowler-vdi:4.28.1-20260819
           imagePullPolicy: Always
           ports:
             - name: selenium
