@@ -148,8 +148,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test "${{ needs.static-and-agent-validation.result }}" = "success"
-          test "${{ needs.docker-validation.result }}" = "success"
-          test "${{ needs.kubernetes-and-helm-validation.result }}" = "success"
-          test "${{ needs.nomad-validation.result }}" = "success"
-          test "${{ needs.terraform-validation.result }}" = "success"
+          test "${{ needs['static-and-agent-validation'].result }}" = "success"
+          test "${{ needs['docker-validation'].result }}" = "success"
+          test "${{ needs['kubernetes-and-helm-validation'].result }}" = "success"
+          test "${{ needs['nomad-validation'].result }}" = "success"
+          test "${{ needs['terraform-validation'].result }}" = "success"
