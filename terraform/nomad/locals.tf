@@ -1,7 +1,7 @@
 locals {
   repository_root = abspath("${path.root}/../..")
-  jobspec_path     = "${local.repository_root}/nomad/crowler.nomad.hcl"
-  config_path      = "${local.repository_root}/config.yaml"
+  jobspec_path    = "${local.repository_root}/nomad/crowler.nomad.hcl"
+  config_path     = "${local.repository_root}/config.yaml"
 
   user_agents  = sort(tolist(fileset("${local.repository_root}/user/agents", "*.{yaml,yml,json}")))
   user_plugins = sort(tolist(fileset("${local.repository_root}/user/plugins", "*.js")))
