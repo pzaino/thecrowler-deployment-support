@@ -1,0 +1,64 @@
+name: Continuous deployment trigger
+
+on:
+  workflow_run:
+    workflows:
+      - Validate deployment support
+    types:
+      - completed
+    branches:
+      - main
+
+permissions:
+  actions: write
+  contents: read
+
+jobs:
+  dispatch:
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      vars.CROWLER_AUTO_DEPLOY == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate continuous deployment configuration
+        env:
+          BACKEND: ${{ vars.CROWLER_AUTO_DEPLOY_BACKEND }}
+          DEPLOY_ENVIRONMENT: ${{ vars.CROWLER_AUTO_DEPLOY_ENVIRONMENT }}
+          RUNNER: ${{ vars.CROWLER_AUTO_DEPLOY_RUNNER }}
+        run: |
+          set -euo pipefail
+
+          case "$BACKEND" in
+            helm|nomad) ;;
+            *)
+              echo "ERROR: CROWLER_AUTO_DEPLOY_BACKEND must be 'helm' or 'nomad'." >&2
+              exit 1
+              ;;
+          esac
+
+          if [ -z "$DEPLOY_ENVIRONMENT" ]; then
+            echo "ERROR: CROWLER_AUTO_DEPLOY_ENVIRONMENT is required." >&2
+            exit 1
+          fi
+
+          if [ -z "$RUNNER" ]; then
+            echo "ERROR: CROWLER_AUTO_DEPLOY_RUNNER is required." >&2
+            exit 1
+          fi
+
+      - name: Dispatch deployment workflow
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BACKEND: ${{ vars.CROWLER_AUTO_DEPLOY_BACKEND }}
+          DEPLOY_ENVIRONMENT: ${{ vars.CROWLER_AUTO_DEPLOY_ENVIRONMENT }}
+          RUNNER: ${{ vars.CROWLER_AUTO_DEPLOY_RUNNER }}
+        run: |
+          set -euo pipefail
+
+          gh workflow run deploy.yml \
+            --repo "$GITHUB_REPOSITORY" \
+            --ref main \
+            -f backend="$BACKEND" \
+            -f environment="$DEPLOY_ENVIRONMENT" \
+            -f operation=apply \
+            -f runner="$RUNNER"
