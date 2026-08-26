@@ -17,15 +17,38 @@ bash ./scripts/validate-deployment-support.sh <target>
 CI validates:
 
 * repository structure and all shell scripts with ShellCheck;
+* deployment image-version consistency;
 * AI deployment skill structure and metadata;
 * generated Docker Compose output;
-* generated Docker Swarm output, including Swarm-specific user-content/config rules;
-* raw Kubernetes manifests with client-side validation;
-* the Helm chart with linting and rendering;
+* generated Docker Swarm output using the dedicated Swarm generator, including immutable config and user-content rules;
+* raw Kubernetes manifests with strict `kubeconform` schemas;
+* the Helm chart with linting, rendering, and strict Kubernetes schema validation;
 * the Nomad jobspec with preflight, formatting, and `nomad job validate`;
 * Terraform formatting and validation for both `terraform/helm` and `terraform/nomad`.
 
+All validation jobs feed a single status named:
+
+```text
+Validation gate
+```
+
+This is the status that should be required by branch protection or a repository ruleset for `main`.
+
 These checks are non-destructive. They do not connect to a production target and do not deploy anything.
+
+## Protect `main`
+
+CI can expose a required status, but repository protection is a GitHub repository setting rather than something a workflow should silently change itself.
+
+For production-quality operation, protect `main` with a branch rule or repository ruleset that:
+
+* requires pull requests before merging;
+* requires the `Validation gate` status check;
+* requires the branch to be up to date before merging when that fits your workflow;
+* prevents force pushes and branch deletion;
+* optionally requires review approvals.
+
+This turns deployment validation from an advisory check into an enforced merge gate.
 
 ### `Smoke published CROWler deployment`
 
@@ -33,14 +56,15 @@ Runs on demand through `workflow_dispatch`.
 
 The smoke workflow uses native GitHub-hosted AMD64 and ARM64 runners. For the selected CROWler and VDI image tags it:
 
-1. generates a minimal Docker Compose deployment;
-2. validates the generated Compose configuration;
-3. pulls the official DB, Engine, API, Events, and VDI images;
-4. verifies that native image selection resolves to the expected `linux/amd64` or `linux/arm64` architecture;
-5. creates the Compose containers without starting a production workload;
-6. removes the ephemeral smoke resources.
+1. generates and validates a minimal Docker Compose deployment;
+2. pulls the official DB, Engine, API, Events, and VDI images;
+3. verifies native image selection resolves to the expected `linux/amd64` or `linux/arm64` architecture;
+4. starts the deployment with `docker compose up -d`;
+5. waits for DB, API, Events, and Engine health checks and verifies that VDI remains running;
+6. prints final status and diagnostic logs;
+7. removes the ephemeral containers, networks, volumes, and generated runtime files.
 
-Use this before a deployment when you want stronger assurance that published multi-architecture artifacts are available and compatible with the generated Compose topology.
+Use this before an important deployment or release when you want runtime assurance that the published multi-architecture artifacts can actually start together using the generated deployment topology.
 
 It intentionally does not run on every pull request because the VDI image is large and registry-dependent.
 
@@ -54,6 +78,8 @@ Runs through `workflow_dispatch` and supports:
 * `apply`;
 * GitHub-hosted or self-hosted runners;
 * CROWler and VDI image-version overrides.
+
+Plans may be run from a development branch. `apply` is restricted to `main`.
 
 The workflow uses the repository's existing deployment definitions rather than creating a second topology.
 
@@ -116,7 +142,7 @@ Workflow-dispatch version inputs can override these two values for a particular 
 
 Do not commit production `.env` or `config.yaml` files to this repository.
 
-## Helm/Kubernetes credentials
+## Helm/Kubernetes credentials and content
 
 For `backend=helm`, also create the Environment secret:
 
@@ -128,7 +154,18 @@ The selected runner must be able to reach the Kubernetes API endpoint.
 
 For private clusters, use a self-hosted runner with the required network access instead of exposing the cluster API publicly for CI/CD.
 
-The workflow validates the chart, verifies cluster connectivity, creates or updates runtime ConfigMap and Secret objects, runs `helm upgrade --install`, and waits for Engine, API, and Events rollouts.
+The workflow stores this kubeconfig under the GitHub runner temporary directory and removes only that temporary file. It does not overwrite a self-hosted runner operator's existing `~/.kube/config`.
+
+On apply, the Helm path mirrors the normal repository runtime contract:
+
+* `config.yaml` becomes the externally managed `crowler-config` ConfigMap;
+* every key declared by the deployment `.env` becomes part of `crowler-secrets`;
+* direct files under `user/agents`, `user/plugins`, `user/rules`, and `user/support` become the corresponding externally managed ConfigMaps;
+* the chart is installed with `userContent.enabled=true` and those ConfigMap names;
+* config, secrets, and user-content rollout tokens force workload updates when their externally managed data changes;
+* Helm uses `--atomic --wait --timeout 10m` and then verifies the Engine, API, and Events rollouts.
+
+Keep Kubernetes ConfigMap size limits in mind for large user support files. Large/binary artifacts should use a storage or artifact-distribution mechanism rather than being forced into a ConfigMap.
 
 ## Nomad credentials
 
@@ -154,6 +191,8 @@ The selected runner must be able to reach the Nomad API.
 
 The Environment or repository variable `NOMAD_VERSION` can override the CLI version installed by the workflow. If not set, the workflow uses its documented default.
 
+The downloaded Nomad archive is verified against HashiCorp's published SHA256SUMS before installation.
+
 ## Plan before apply
 
 For a new environment, run the deployment workflow with:
@@ -168,7 +207,7 @@ first. After reviewing the result, run:
 operation = apply
 ```
 
-Use GitHub Environment reviewers as the deployment approval gate for sensitive environments.
+`apply` is accepted only from `main`. Use GitHub Environment reviewers as the deployment approval gate for sensitive environments.
 
 ## Continuous deployment
 
@@ -194,27 +233,36 @@ For private targets, set `CROWLER_AUTO_DEPLOY_RUNNER` to the label of a self-hos
 
 Even when continuous deployment is enabled, GitHub Environment protection rules still apply.
 
+## Supply-chain hardening
+
+Third-party GitHub Actions in the repository are pinned to immutable commit SHAs instead of floating major-version tags. The corresponding tag is retained as a comment for readability.
+
+Downloaded deployment binaries are checksum-verified before installation.
+
+When updating an action or downloaded CLI, verify the new release from the official upstream project rather than changing the pin blindly.
+
 ## Recommended production model
 
 Use these controls together:
 
-1. require `Validate deployment support` on changes to `main`;
-2. run the native image smoke workflow for important release/deployment milestones;
-3. use a protected GitHub Environment for production;
-4. store deployment credentials only as Environment secrets;
-5. use self-hosted runners for private Kubernetes or Nomad control planes;
-6. run `plan` before the first deployment to a new environment;
-7. enable `CROWLER_AUTO_DEPLOY` only after manual deployment has been tested successfully;
-8. keep Terraform apply outside ephemeral CI until remote state locking and persistence are configured.
+1. protect `main` and require the `Validation gate` status;
+2. require pull requests for deployment-support changes;
+3. run the native runtime smoke workflow for important release/deployment milestones;
+4. use a protected GitHub Environment for production;
+5. store deployment credentials only as Environment secrets;
+6. use self-hosted runners for private Kubernetes or Nomad control planes;
+7. run `plan` before the first deployment to a new environment;
+8. enable `CROWLER_AUTO_DEPLOY` only after manual deployment has been tested successfully;
+9. keep Terraform apply outside ephemeral CI until remote state locking and persistence are configured.
 
 ## AI-assisted operation
 
-The AI skill `.agents/skills/deploy-github-actions/SKILL.md` describes the same deployment boundaries, secrets, approval model, plan/apply sequence, smoke workflow, and safety constraints for compatible agents.
+The AI skill `.agents/skills/deploy-github-actions/SKILL.md` describes the same deployment boundaries, secrets, approval model, plan/apply sequence, runtime smoke workflow, and safety constraints for compatible agents.
 
 Cross-backend validation guidance is in `.agents/skills/validate-deployment/SKILL.md`.
 
 ## Sensitive-file cleanup
 
-The deployment workflow removes generated `.env`, `config.yaml`, and kubeconfig files in an `always()` cleanup step.
+The deployment workflow removes generated `.env`, `config.yaml`, and its temporary kubeconfig in an `always()` cleanup step.
 
 This reduces credential persistence on the runner, but self-hosted runner operators must still secure runner hosts, logs, caches, and work directories according to their own security requirements.
