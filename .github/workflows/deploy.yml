@@ -167,7 +167,7 @@ jobs:
           helm upgrade --install crowler helm/thecrowler \
             --namespace crowler \
             --create-namespace \
-            --set-string global.crowlerVersion="${CROWLER_VERSION:-latest}" \
+            --set-string global.crowlerVersion="${CROWLER_VERSION:-2.1.0}" \
             --set-string global.vdiVersion="${CROWLER_VDI_VERSION:-4.28.1-20260819}" \
             --set userContent.enabled=true \
             --set-string userContent.agentsConfigMap=crowler-user-agents \
@@ -227,7 +227,7 @@ jobs:
             --atomic \
             --wait \
             --timeout 10m \
-            --set-string global.crowlerVersion="${CROWLER_VERSION:-latest}" \
+            --set-string global.crowlerVersion="${CROWLER_VERSION:-2.1.0}" \
             --set-string global.vdiVersion="${CROWLER_VDI_VERSION:-4.28.1-20260819}" \
             --set-string config.rolloutToken="$rollout_token" \
             --set-string secrets.rolloutToken="$rollout_token" \

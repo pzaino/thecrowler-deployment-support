@@ -202,8 +202,10 @@ Important options include:
 --mem_limit_tlm=PERCENT
 --config=PATH
 --env-file=PATH
---swarm=yes|no
 ```
+
+The Compose generator is intentionally Compose-only. Legacy `--swarm=*`
+invocations fail with an error and point to the dedicated Swarm generator.
 
 ## Engine and VDI Mapping
 
@@ -246,6 +248,12 @@ Do not add `-v` unless persistent data deletion is explicitly intended.
 
 ## Docker Swarm
 
-For Docker Swarm use:
+Docker Swarm has a separate authoritative generator because Swarm runtime
+configuration and user content use immutable, content-hashed Docker Configs.
+Use:
 
-[docker-swarm/README.md](../docker-swarm/README.md)
+```bash
+./docker-swarm/generate-docker-compose.sh
+```
+
+See [Docker Swarm](../docker-swarm/README.md).
