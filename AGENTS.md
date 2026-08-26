@@ -170,7 +170,7 @@ Do not put credentials inside `user/`.
 The canonical repository validation entry point is:
 
 ```bash
-./scripts/validate-deployment-support.sh <target>
+bash ./scripts/validate-deployment-support.sh <target>
 ```
 
 Targets are:
@@ -190,7 +190,7 @@ all
 Prefer:
 
 ```bash
-./scripts/validate-deployment-support.sh all
+bash ./scripts/validate-deployment-support.sh all
 ```
 
 before declaring a deployment-support change valid.
@@ -201,7 +201,7 @@ Validation must remain non-destructive. It must not apply Kubernetes resources, 
 
 Validation does not prove runtime health or target reachability.
 
-Use the dedicated smoke workflow when image-level deployment smoke coverage is requested, and backend-specific plan/apply plus health checks for a live environment.
+Use the dedicated `Smoke published CROWler deployment` workflow when image-level deployment smoke coverage is requested, and backend-specific plan/apply plus health checks for a live environment.
 
 ## Agent Skills
 
