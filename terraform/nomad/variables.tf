@@ -31,7 +31,7 @@ variable "crowler_version" {
 variable "vdi_version" {
   description = "VDI image version. terraform/run.sh supplies root CROWLER_VDI_VERSION."
   type        = string
-  default     = "4.28.1-20260807"
+  default     = "4.28.1-20260819"
 }
 
 variable "engine_count" {
