@@ -178,6 +178,9 @@ See [user/README.md](user/README.md).
 | VDI | `zfpsystems/crowler-vdi` |
 | API | `zfpsystems/crowler-api` |
 | Events | `zfpsystems/crowler-events` |
+| Downstream Proxy* | `zfpsystems/microproxy` |
+
+\* Optional component
 
 `CROWLER_VERSION` controls DB, Engine, API, and Events.
 
