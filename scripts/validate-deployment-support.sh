@@ -110,30 +110,26 @@ validate_versions() {
     local expected_crowler="2.1.0"
     local expected_vdi="4.28.1-20260819"
 
-    grep -q "^CROWLER_VERSION=${expected_crowler}$" common/env/env_template || {
-        echo "ERROR: common/env/env_template CROWLER_VERSION must be ${expected_crowler}." >&2
+    grep -q '^CROWLER_VERSION=latest$' common/env/env_template || {
+        echo "ERROR: common/env/env_template should default CROWLER_VERSION to latest." >&2
         return 1
     }
     grep -q "^CROWLER_VDI_VERSION=${expected_vdi}$" common/env/env_template || {
-        echo "ERROR: common/env/env_template CROWLER_VDI_VERSION must be ${expected_vdi}." >&2
+        echo "ERROR: common/env/env_template VDI version must be ${expected_vdi}." >&2
         return 1
     }
-    grep -q "appVersion: \"${expected_crowler}\"" helm/thecrowler/Chart.yaml || {
-        echo "ERROR: Helm appVersion is out of sync with ${expected_crowler}." >&2
-        return 1
-    }
-    grep -q "crowlerVersion: \"${expected_crowler}\"" helm/thecrowler/values.yaml || {
-        echo "ERROR: Helm default CROWler version is out of sync." >&2
-        return 1
-    }
-    grep -q "vdiVersion: \"${expected_vdi}\"" helm/thecrowler/values.yaml || {
-        echo "ERROR: Helm default VDI version is out of sync." >&2
-        return 1
-    }
+    grep -q "appVersion: \"${expected_crowler}\"" helm/thecrowler/Chart.yaml || return 1
+    grep -q "crowlerVersion: \"${expected_crowler}\"" helm/thecrowler/values.yaml || return 1
+    grep -q "vdiVersion: \"${expected_vdi}\"" helm/thecrowler/values.yaml || return 1
+    grep -q "default = \"${expected_crowler}\"" terraform/helm/variables.tf || return 1
+    grep -q "default = \"${expected_vdi}\"" terraform/helm/variables.tf || return 1
+    grep -q "default = \"${expected_vdi}\"" terraform/nomad/variables.tf || return 1
+
     if grep -Rqs 'zfpsystems/crowler-.*:2\.0\.3' kubernetes/base; then
         echo "ERROR: raw Kubernetes manifests still reference CROWler 2.0.3." >&2
         return 1
     fi
+    grep -q "zfpsystems/crowler-vdi:${expected_vdi}" kubernetes/base/vdi/deployment.yaml || return 1
 
     echo "Deployment version defaults are consistent."
 }
