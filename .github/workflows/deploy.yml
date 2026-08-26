@@ -28,11 +28,11 @@ on:
         default: ubuntu-latest
         type: string
       crowler_version:
-        description: CROWler image version override. Leave empty to use common/env/env_template.
+        description: CROWler image version override. Leave empty to use CROWLER_ENV.
         required: false
         type: string
       vdi_version:
-        description: CROWler VDI image version override. Leave empty to use common/env/env_template.
+        description: CROWler VDI image version override. Leave empty to use CROWLER_ENV.
         required: false
         type: string
 
@@ -93,6 +93,21 @@ jobs:
             fi
           fi
 
+          set -a
+          . ./.env
+          set +a
+
+          for required_key in \
+            DOCKER_POSTGRES_PASSWORD \
+            DOCKER_CROWLER_DB_USER \
+            DOCKER_CROWLER_DB_PASSWORD \
+            SEL_PASSWD; do
+            if [ -z "${!required_key:-}" ]; then
+              echo "ERROR: CROWLER_ENV does not define required value: $required_key" >&2
+              exit 1
+            fi
+          done
+
       - name: Set up Helm
         if: inputs.backend == 'helm'
         uses: azure/setup-helm@v4
@@ -135,23 +150,11 @@ jobs:
           . ./.env
           set +a
 
-          kubectl create namespace crowler --dry-run=client -o yaml | kubectl apply --dry-run=server -f -
-          kubectl create configmap crowler-config \
-            -n crowler \
-            --from-file=config.yaml=./config.yaml \
-            --dry-run=client -o yaml | kubectl apply --dry-run=server -f -
-
-          kubectl create secret generic crowler-secrets \
-            -n crowler \
-            --from-literal=DOCKER_POSTGRES_PASSWORD="$DOCKER_POSTGRES_PASSWORD" \
-            --from-literal=DOCKER_CROWLER_DB_USER="$DOCKER_CROWLER_DB_USER" \
-            --from-literal=DOCKER_CROWLER_DB_PASSWORD="$DOCKER_CROWLER_DB_PASSWORD" \
-            --from-literal=SEL_PASSWD="$SEL_PASSWD" \
-            --dry-run=client -o yaml | kubectl apply --dry-run=server -f -
-
           helm upgrade --install crowler helm/thecrowler \
             --namespace crowler \
             --create-namespace \
+            --set-string global.crowlerVersion="${CROWLER_VERSION:-latest}" \
+            --set-string global.vdiVersion="${CROWLER_VDI_VERSION:-4.28.1-20260807}" \
             --dry-run=server
 
       - name: Apply Helm deployment
@@ -182,6 +185,8 @@ jobs:
           helm upgrade --install crowler helm/thecrowler \
             --namespace crowler \
             --create-namespace \
+            --set-string global.crowlerVersion="${CROWLER_VERSION:-latest}" \
+            --set-string global.vdiVersion="${CROWLER_VDI_VERSION:-4.28.1-20260807}" \
             --set-string config.rolloutToken="$rollout_token" \
             --set-string secrets.rolloutToken="$rollout_token"
 
