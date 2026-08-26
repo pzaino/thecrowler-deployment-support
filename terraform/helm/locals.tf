@@ -11,9 +11,9 @@ locals {
   user_rules_config_map   = "${var.release_name}-user-rules"
   user_support_config_map = "${var.release_name}-user-support"
 
-  user_agents_files = sort(tolist(fileset("${local.repository_root}/user/agents", "*.{yaml,yml,json}")))
+  user_agents_files  = sort(tolist(fileset("${local.repository_root}/user/agents", "*.{yaml,yml,json}")))
   user_plugins_files = sort(tolist(fileset("${local.repository_root}/user/plugins", "*.js")))
-  user_rules_files = sort(tolist(fileset("${local.repository_root}/user/rules", "*.{yaml,yml,json}")))
+  user_rules_files   = sort(tolist(fileset("${local.repository_root}/user/rules", "*.{yaml,yml,json}")))
   user_support_files = sort([
     for filename in fileset("${local.repository_root}/user/support", "*") : filename
     if !startswith(filename, ".")
