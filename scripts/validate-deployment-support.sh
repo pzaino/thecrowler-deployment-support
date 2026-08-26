@@ -34,6 +34,17 @@ require_command() {
     fi
 }
 
+require_match() {
+    local pattern="$1"
+    local file="$2"
+    local description="$3"
+
+    if ! grep -Eq "$pattern" "$file"; then
+        echo "ERROR: $description ($file)." >&2
+        return 1
+    fi
+}
+
 tmp_dir="$(mktemp -d)"
 created_env=0
 created_config=0
@@ -110,26 +121,38 @@ validate_versions() {
     local expected_crowler="2.1.0"
     local expected_vdi="4.28.1-20260819"
 
-    grep -q '^CROWLER_VERSION=latest$' common/env/env_template || {
-        echo "ERROR: common/env/env_template should default CROWLER_VERSION to latest." >&2
-        return 1
-    }
-    grep -q "^CROWLER_VDI_VERSION=${expected_vdi}$" common/env/env_template || {
-        echo "ERROR: common/env/env_template VDI version must be ${expected_vdi}." >&2
-        return 1
-    }
-    grep -q "appVersion: \"${expected_crowler}\"" helm/thecrowler/Chart.yaml || return 1
-    grep -q "crowlerVersion: \"${expected_crowler}\"" helm/thecrowler/values.yaml || return 1
-    grep -q "vdiVersion: \"${expected_vdi}\"" helm/thecrowler/values.yaml || return 1
-    grep -q "default = \"${expected_crowler}\"" terraform/helm/variables.tf || return 1
-    grep -q "default = \"${expected_vdi}\"" terraform/helm/variables.tf || return 1
-    grep -q "default = \"${expected_vdi}\"" terraform/nomad/variables.tf || return 1
+    require_match "^CROWLER_VERSION=${expected_crowler}$" common/env/env_template \
+        "default CROWler version must be ${expected_crowler}"
+    require_match "^CROWLER_VDI_VERSION=${expected_vdi}$" common/env/env_template \
+        "default VDI version must be ${expected_vdi}"
+    require_match "^appVersion:[[:space:]]*\"${expected_crowler}\"$" helm/thecrowler/Chart.yaml \
+        "Helm appVersion must be ${expected_crowler}"
+    require_match "^[[:space:]]*crowlerVersion:[[:space:]]*\"${expected_crowler}\"$" helm/thecrowler/values.yaml \
+        "Helm CROWler image version must be ${expected_crowler}"
+    require_match "^[[:space:]]*vdiVersion:[[:space:]]*\"${expected_vdi}\"$" helm/thecrowler/values.yaml \
+        "Helm VDI image version must be ${expected_vdi}"
+    require_match "^[[:space:]]*default[[:space:]]*=[[:space:]]*\"${expected_crowler}\"$" terraform/helm/variables.tf \
+        "Terraform Helm CROWler default must be ${expected_crowler}"
+    require_match "^[[:space:]]*default[[:space:]]*=[[:space:]]*\"${expected_vdi}\"$" terraform/helm/variables.tf \
+        "Terraform Helm VDI default must be ${expected_vdi}"
+    require_match "^[[:space:]]*default[[:space:]]*=[[:space:]]*\"${expected_vdi}\"$" terraform/nomad/variables.tf \
+        "Terraform Nomad VDI default must be ${expected_vdi}"
+    require_match "^[[:space:]]*default[[:space:]]*=[[:space:]]*\"${expected_crowler}\"$" nomad/crowler.nomad.hcl \
+        "Nomad jobspec CROWler default must be ${expected_crowler}"
+    require_match "^[[:space:]]*default[[:space:]]*=[[:space:]]*\"${expected_vdi}\"$" nomad/crowler.nomad.hcl \
+        "Nomad jobspec VDI default must be ${expected_vdi}"
 
     if grep -Rqs 'zfpsystems/crowler-.*:2\.0\.3' kubernetes/base; then
         echo "ERROR: raw Kubernetes manifests still reference CROWler 2.0.3." >&2
         return 1
     fi
-    grep -q "zfpsystems/crowler-vdi:${expected_vdi}" kubernetes/base/vdi/deployment.yaml || return 1
+    require_match "zfpsystems/crowler-vdi:${expected_vdi}" kubernetes/base/vdi/deployment.yaml \
+        "raw Kubernetes VDI image must be ${expected_vdi}"
+
+    if grep -Rqs '4\.28\.1-20260807' docker-compose docker-swarm nomad terraform kubernetes helm .github; then
+        echo "ERROR: stale VDI fallback 4.28.1-20260807 remains in deployment definitions." >&2
+        return 1
+    fi
 
     echo "Deployment version defaults are consistent."
 }
@@ -170,7 +193,7 @@ validate_skills() {
         return 1
     }
 
-    if grep -Eq '\|[[:space:]]*`(deploy|validate)-[^`]+`[^|]*\|[^|]*\|[[:space:]]*Planned[[:space:]]*\|' .agents/skills/README.md; then
+    if grep -E '[|][[:space:]]*Planned[[:space:]]*[|]' .agents/skills/README.md | grep -Eq '(deploy|validate)-'; then
         echo "ERROR: the AI skill index still contains planned deployment/validation skills." >&2
         return 1
     fi
@@ -181,7 +204,14 @@ validate_skills() {
 validate_static() {
     require_command shellcheck
     validate_structure
-    find . -type f -name '*.sh' -print0 | xargs -0 shellcheck
+
+    # The Swarm generator intentionally keeps a constant Swarm-mode variable
+    # for compatibility with its shared generator structure. Check everything
+    # else normally and suppress only SC2034 for that one script.
+    find . -type f -name '*.sh' ! -path './docker-swarm/generate-docker-compose.sh' -print0 |
+        xargs -0 shellcheck
+    shellcheck -e SC2034 ./docker-swarm/generate-docker-compose.sh
+
     validate_skills
     validate_versions
     echo "Static deployment validation passed."
@@ -222,7 +252,10 @@ validate_swarm() {
 
 validate_kubernetes() {
     require_command kubeconform
-    kubeconform -strict -summary -kubernetes-version 1.32.0 kubernetes/base/
+    local version
+    for version in 1.27.0 1.32.0; do
+        kubeconform -strict -summary -kubernetes-version "$version" kubernetes/base/
+    done
     echo "Raw Kubernetes schema validation passed."
 }
 
@@ -230,8 +263,11 @@ validate_helm() {
     require_command helm
     require_command kubeconform
     helm lint helm/thecrowler
-    helm template crowler helm/thecrowler --namespace crowler | \
-        kubeconform -strict -summary -kubernetes-version 1.32.0
+    local version
+    for version in 1.27.0 1.32.0; do
+        helm template crowler helm/thecrowler --namespace crowler | \
+            kubeconform -strict -summary -kubernetes-version "$version"
+    done
     echo "Helm validation passed."
 }
 

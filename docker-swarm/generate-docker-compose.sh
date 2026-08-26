@@ -4,7 +4,7 @@
 #
 # Run from the deployment workspace, normally the repository root:
 #
-#   ./docker-compose/generate-docker-compose.sh ...
+#   ./docker-swarm/generate-docker-compose.sh ...
 #
 # The default deployment inputs are:
 #   .env
@@ -27,7 +27,7 @@ if [ "$current_dir" != "$repo_root" ]; then
     echo "Repository root:   $repo_root"
     echo
     echo "Run:"
-    echo "  ./docker-compose/generate-docker-compose.sh ..."
+    echo "  ./docker-swarm/generate-docker-compose.sh ..."
     exit 1
 fi
 
@@ -47,10 +47,9 @@ mem_limit_vdi_pct=""
 mem_limit_eng_pct=""
 mem_limit_mng_pct=""
 mem_limit_tlm_pct=""
-use_swarm="no"
+use_swarm="yes"
 env_file=".env"
 config_file="${CROWLER_CONFIG_FILE:-config.yaml}"
-
 
 # User deployment content is always rooted at ./user from the repository root.
 user_content_root="./user"
@@ -90,7 +89,7 @@ cmd_usage() {
     echo "  --mem_limit_engine=<number> Memory limit for crowler-engine instances in %"
     echo "  --mem_limit_mng=<number>    Memory limit for crowler-api and crowler-events in %"
     echo "  --mem_limit_tlm=<number>    Memory limit for Jaeger and Pushgateway in %"
-    echo "  --swarm=<yes/no>            Generate Docker Swarm-compatible output"
+    echo "  --swarm=<yes/no>            Compatibility option; Swarm mode is always enabled"
     echo "  --env-file=<path>           Environment file (default: .env)"
     echo "  --config=<path>             CROWler runtime config (default: config.yaml)"
     echo "  -h, --help                  Show this help"
@@ -179,36 +178,22 @@ emit_runtime() {
     local cpus="$2"
     local memory="$3"
 
-    if [ "$use_swarm" == "yes" ]; then
-        echo "${indent}deploy:"
-        echo "${indent}  resources:"
-        echo "${indent}    limits:"
-        echo "${indent}      cpus: \"$cpus\""
-        echo "${indent}      memory: \"$memory\""
-        echo "${indent}  restart_policy:"
-        echo "${indent}    condition: any"
-    else
-        echo "${indent}cpus: \"$cpus\""
-        echo "${indent}mem_limit: \"$memory\""
-        echo "${indent}restart: unless-stopped"
-    fi
+    echo "${indent}deploy:"
+    echo "${indent}  resources:"
+    echo "${indent}    limits:"
+    echo "${indent}      cpus: \"$cpus\""
+    echo "${indent}      memory: \"$memory\""
+    echo "${indent}  restart_policy:"
+    echo "${indent}    condition: any"
 }
 
 emit_container_name() {
-    local indent="$1"
-    local name="$2"
-    if [ "$use_swarm" != "yes" ]; then
-        echo "${indent}container_name: \"$name\""
-    fi
+    :
 }
 
 emit_pull_policy() {
-    local indent="$1"
-    if [ "$use_swarm" != "yes" ]; then
-        echo "${indent}pull_policy: always"
-    fi
+    :
 }
-
 
 sha256_file() {
     local file="$1"
@@ -246,8 +231,6 @@ validate_user_content_dirs() {
 }
 
 collect_swarm_user_configs() {
-    [ "$use_swarm" == "yes" ] || return 0
-
     local category
     local dir
     local file
@@ -299,21 +282,12 @@ collect_swarm_user_configs() {
 }
 
 emit_compose_user_content_volumes() {
-    local indent="$1"
-
-    [ "$use_swarm" != "yes" ] || return 0
-
-    echo "${indent}- ./user/agents:/app/user/agents:ro"
-    echo "${indent}- ./user/plugins:/app/user/plugins:ro"
-    echo "${indent}- ./user/rules:/app/user/rules:ro"
-    echo "${indent}- ./user/support:/app/user/support:ro"
+    :
 }
 
 emit_swarm_user_content_configs() {
     local indent="$1"
     local i
-
-    [ "$use_swarm" == "yes" ] || return 0
 
     for ((i = 0; i < ${#swarm_user_config_keys[@]}; i++)); do
         echo "${indent}- source: ${swarm_user_config_keys[$i]}"
@@ -323,8 +297,6 @@ emit_swarm_user_content_configs() {
 
 emit_top_level_swarm_user_configs() {
     local i
-
-    [ "$use_swarm" == "yes" ] || return 0
 
     for ((i = 0; i < ${#swarm_user_config_keys[@]}; i++)); do
         echo "  ${swarm_user_config_keys[$i]}:"
@@ -393,7 +365,11 @@ for arg in "$@"; do
             mem_limit_tlm_pct="${arg#*=}"
             ;;
         --swarm=*)
-            use_swarm="${arg#*=}"
+            requested_swarm="${arg#*=}"
+            if [ "$requested_swarm" != "yes" ]; then
+                echo "ERROR: docker-swarm/generate-docker-compose.sh always generates Swarm output." >&2
+                exit 1
+            fi
             ;;
         --env-file=*)
             env_file="${arg#*=}"
@@ -427,7 +403,6 @@ validate_non_negative_integer "engine_count" "$engine_count"
 validate_non_negative_integer "vdi_count" "$vdi_count"
 validate_yes_no "prometheus" "$prometheus"
 validate_yes_no "postgres" "$postgres"
-validate_yes_no "swarm" "$use_swarm"
 
 for pct in "$mem_limit_vdi_pct" "$mem_limit_eng_pct" "$mem_limit_mng_pct" "$mem_limit_tlm_pct"; do
     if [ -n "$pct" ]; then
@@ -461,10 +436,9 @@ if [ "$needs_crowler_config" == "1" ] && [ ! -f "$config_file" ]; then
     exit 1
 fi
 
-
 validate_user_content_dirs
 
-if [ "$needs_crowler_config" == "1" ] && [ "$use_swarm" == "yes" ]; then
+if [ "$needs_crowler_config" == "1" ]; then
     config_digest="$(sha256_file "$config_file")"
     runtime_config_key="crowler_config_${config_digest:0:12}"
 fi
@@ -508,12 +482,7 @@ mem_limit_vdi_pct=$(to_mem_unit "$mem_limit_vdi_pct")
 mem_limit_eng_pct=$(to_mem_unit "$mem_limit_eng_pct")
 mem_limit_mng_pct=$(to_mem_unit "$mem_limit_mng_pct")
 mem_limit_tlm_pct=$(to_mem_unit "$mem_limit_tlm_pct")
-
-if [ "$use_swarm" == "yes" ]; then
-    net_driver="overlay"
-else
-    net_driver="bridge"
-fi
+net_driver="overlay"
 
 cat <<'EOF' > docker-compose.yml
 ---
@@ -524,7 +493,6 @@ if [ "$no_api" == "0" ]; then
     {
         echo
         echo "  crowler-api:"
-        emit_container_name "    " "crowler-api"
         emit_runtime "    " "${cpu_limit_mng:-1.0}" "${mem_limit_mng_pct:-2g}"
         cat <<EOF
     env_file:
@@ -540,9 +508,8 @@ if [ "$no_api" == "0" ]; then
       - POSTGRES_SSL_MODE=\${DOCKER_POSTGRES_SSL_MODE:-disable}
       - TZ=\${VDI_TZ:-UTC}
       - MICROSERVICE_NAME=crowler-api
-    image: zfpsystems/crowler-api:\${CROWLER_VERSION:-latest}
+    image: zfpsystems/crowler-api:\${CROWLER_VERSION:-2.1.0}
 EOF
-        emit_pull_policy "    "
         cat <<'EOF'
     stdin_open: true
     tty: true
@@ -553,7 +520,6 @@ EOF
     volumes:
       - api_data:/app/data
 EOF
-        emit_compose_user_content_volumes "      "
         cat <<EOF
     configs:
       - source: $runtime_config_key
@@ -576,7 +542,6 @@ if [ "$no_events" == "0" ]; then
     {
         echo
         echo "  crowler-events:"
-        emit_container_name "    " "crowler-events"
         emit_runtime "    " "${cpu_limit_mng:-1.0}" "${mem_limit_mng_pct:-2g}"
         cat <<EOF
     env_file:
@@ -592,9 +557,8 @@ if [ "$no_events" == "0" ]; then
       - POSTGRES_SSL_MODE=\${DOCKER_POSTGRES_SSL_MODE:-disable}
       - TZ=\${VDI_TZ:-UTC}
       - MICROSERVICE_NAME=crowler-events
-    image: zfpsystems/crowler-events:\${CROWLER_VERSION:-latest}
+    image: zfpsystems/crowler-events:\${CROWLER_VERSION:-2.1.0}
 EOF
-        emit_pull_policy "    "
         cat <<'EOF'
     stdin_open: true
     tty: true
@@ -605,7 +569,6 @@ EOF
     volumes:
       - events_data:/app/data
 EOF
-        emit_compose_user_content_volumes "      "
         cat <<EOF
     configs:
       - source: $runtime_config_key
@@ -628,13 +591,9 @@ if [ "$postgres" == "yes" ]; then
     {
         echo
         echo "  crowler-db:"
-        emit_container_name "    " "crowler-db"
         emit_runtime "    " "${cpu_limit_mng:-1.0}" "${mem_limit_mng_pct:-3g}"
         cat <<EOF
-    image: zfpsystems/crowler-db:\${CROWLER_VERSION:-latest}
-EOF
-        emit_pull_policy "    "
-        cat <<EOF
+    image: zfpsystems/crowler-db:\${CROWLER_VERSION:-2.1.0}
     ports:
       - "5432:5432"
     env_file:
@@ -685,7 +644,6 @@ if [ "$engine_count" != "0" ]; then
         {
             echo
             echo "  crowler-engine-$i:"
-            emit_container_name "    " "crowler-engine-$i"
             emit_runtime "    " "${cpu_limit_engine:-1.0}" "${mem_limit_eng_pct:-2g}"
             cat <<EOF
     env_file:
@@ -717,10 +675,7 @@ if [ "$engine_count" != "0" ]; then
       - CROWLER_MAIL_LISTENER_IDLE_REISSUE_INTERVAL=\${CROWLER_MAIL_LISTENER_IDLE_REISSUE_INTERVAL:-25m}
       - TZ=\${VDI_TZ:-UTC}
       - MICROSERVICE_NAME=crowler-engine-$i
-    image: zfpsystems/crowler-engine:\${CROWLER_VERSION:-latest}
-EOF
-            emit_pull_policy "    "
-            cat <<'EOF'
+    image: zfpsystems/crowler-engine:\${CROWLER_VERSION:-2.1.0}
     networks:
       - crowler-net
 EOF
@@ -736,14 +691,13 @@ EOF
     volumes:
       - engine_data:/app/data
 EOF
-        emit_compose_user_content_volumes "      "
-        cat <<EOF
+            cat <<EOF
     configs:
       - source: $runtime_config_key
         target: /app/config.yaml
 EOF
-        emit_swarm_user_content_configs "      "
-        cat <<'EOF'
+            emit_swarm_user_content_configs "      "
+            cat <<'EOF'
     user: crowler
     healthcheck:
       test: ["CMD-SHELL", "./healthCheck -service crowler"]
@@ -759,7 +713,6 @@ if [ "$vdi_count" != "0" ] && [ "$no_jaeger" == "0" ]; then
     {
         echo
         echo "  crowler-jaeger:"
-        emit_container_name "    " "crowler-jaeger"
         emit_runtime "    " "${cpu_limit_tlm:-1.0}" "${mem_limit_tlm_pct:-2g}"
         cat <<EOF
     image: jaegertracing/all-in-one:1.54
@@ -795,7 +748,6 @@ if [ "$vdi_count" != "0" ]; then
         {
             echo
             echo "  crowler-vdi-$i:"
-            emit_container_name "    " "crowler-vdi-$i"
             emit_runtime "    " "${cpu_limit_vdi:-1.0}" "${mem_limit_vdi_pct:-2g}"
             cat <<EOF
     env_file:
@@ -816,10 +768,7 @@ if [ "$vdi_count" != "0" ]; then
       - TZ=\${VDI_TZ:-UTC}
       - MICROSERVICE_NAME=crowler-vdi-$i
     shm_size: "2g"
-    image: zfpsystems/crowler-vdi:\${CROWLER_VDI_VERSION:-4.28.1-20260807}
-EOF
-            emit_pull_policy "    "
-            cat <<EOF
+    image: zfpsystems/crowler-vdi:\${CROWLER_VDI_VERSION:-4.28.1-20260819}
     ports:
       - "$HOST_PORT_START1-$HOST_PORT_END1:4444-4445"
       - "$HOST_PORT_START2:5900"
@@ -840,7 +789,6 @@ if [ "$prometheus" == "yes" ]; then
     {
         echo
         echo "  crowler-push-gateway:"
-        emit_container_name "    " "crowler-push-gateway"
         emit_runtime "    " "${cpu_limit_tlm:-1.0}" "${mem_limit_tlm_pct:-2g}"
         cat <<EOF
     image: prom/pushgateway
@@ -922,12 +870,7 @@ echo "Environment: $env_file"
 if [ "$needs_crowler_config" == "1" ]; then
     echo "CROWler config: $config_file -> /app/config.yaml"
 fi
-if [ "$use_swarm" == "yes" ]; then
-    echo "Mode: Docker Swarm"
-    echo "Runtime config object: $runtime_config_key"
-    echo "User files distributed as Swarm configs: ${#swarm_user_config_keys[@]}"
-    echo "Image contract: /app/user/{agents,plugins,rules,support} must exist"
-else
-    echo "Mode: Docker Compose"
-    echo "User content: ./user/* -> /app/user/* (read-only bind mounts)"
-fi
+echo "Mode: Docker Swarm"
+echo "Runtime config object: $runtime_config_key"
+echo "User files distributed as Swarm configs: ${#swarm_user_config_keys[@]}"
+echo "Image contract: /app/user/{agents,plugins,rules,support} must exist"

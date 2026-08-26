@@ -25,7 +25,7 @@ variable "datacenters" {
 variable "crowler_version" {
   description = "CROWler image version. terraform/run.sh supplies root CROWLER_VERSION."
   type        = string
-  default     = "latest"
+  default     = "2.1.0"
 }
 
 variable "vdi_version" {

@@ -24,7 +24,7 @@ variable "namespace" {
 
 variable "crowler_version" {
   type    = string
-  default = "latest"
+  default = "2.1.0"
 }
 
 variable "vdi_version" {
@@ -159,12 +159,12 @@ variable "pushgateway_memory" {
 
 locals {
   # These functions run in the local Nomad CLI parsing context.
-  user_agents  = tolist(fileset("./user/agents", "*.{yaml,yml,json}"))
-  user_plugins = tolist(fileset("./user/plugins", "*.js"))
-  user_rules   = tolist(fileset("./user/rules", "*.{yaml,yml,json}"))
+  user_agents  = fileset("./user/agents", "*.{yaml,yml,json}")
+  user_plugins = fileset("./user/plugins", "*.js")
+  user_rules   = fileset("./user/rules", "*.{yaml,yml,json}")
   user_support = [
     for filename in fileset("./user/support", "*") : filename
-    if !startswith(filename, ".")
+    if filename != ".gitkeep"
   ]
 
   # Environment imported by nomad/bootstrap-env.sh is encrypted in a Nomad
@@ -198,40 +198,50 @@ CROWLER_DB_PASSWORD={{ .DOCKER_CROWLER_DB_PASSWORD.Value | toJSON }}
 {{ end -}}
 EOT
 
-  database_host_template = var.database_enabled ? <<-EOT
+  database_host_template = <<-EOT
+%{if var.database_enabled~}
 {{$allocID := env "NOMAD_ALLOC_ID" -}}
 {{ range nomadService 1 $allocID "crowler-db" -}}
 DOCKER_DB_HOST={{ .Address | toJSON }}
 {{ end -}}
+%{else~}
+DOCKER_DB_HOST=${jsonencode(var.external_db_host)}
+%{endif~}
 EOT
-  : "DOCKER_DB_HOST=${jsonencode(var.external_db_host)}\n"
 
-  selenium_host_template = var.vdi_count > 0 ? <<-EOT
+  selenium_host_template = <<-EOT
+%{if var.vdi_count > 0~}
 {{$allocID := env "NOMAD_ALLOC_ID" -}}
 {{ range nomadService 1 $allocID "crowler-vdi" -}}
 SELENIUM_HOST={{ .Address | toJSON }}
 {{ end -}}
+%{else~}
+SELENIUM_HOST=${jsonencode(var.external_selenium_host)}
+%{endif~}
 EOT
-  : "SELENIUM_HOST=${jsonencode(var.external_selenium_host)}\n"
 
-  prometheus_host_template = var.pushgateway_enabled ? <<-EOT
+  prometheus_host_template = <<-EOT
+%{if var.pushgateway_enabled~}
 {{$allocID := env "NOMAD_ALLOC_ID" -}}
 {{ range nomadService 1 $allocID "crowler-push-gateway" -}}
 PROMETHEUS_HOST={{ .Address | toJSON }}
 {{ end -}}
+%{else~}
+PROMETHEUS_HOST=${jsonencode(var.external_prometheus_host)}
+%{endif~}
 EOT
-  : "PROMETHEUS_HOST=${jsonencode(var.external_prometheus_host)}\n"
 
-  jaeger_env_template = var.jaeger_enabled ? <<-EOT
+  jaeger_env_template = <<-EOT
+%{if var.jaeger_enabled~}
 SE_ENABLE_TRACING="true"
 {{$allocID := env "NOMAD_ALLOC_ID" -}}
 {{ range nomadService 1 $allocID "crowler-jaeger-otlp" -}}
 SE_OTEL_EXPORTER_ENDPOINT={{ printf "http://%s:%d" .Address .Port | toJSON }}
 {{ end -}}
-EOT
-  : <<-EOT
+%{else~}
 SE_ENABLE_TRACING="false"
 SE_OTEL_EXPORTER_ENDPOINT=""
+%{endif~}
 EOT
 }
 
@@ -251,7 +261,7 @@ job "crowler" {
     healthy_deadline  = "5m"
     progress_deadline = "10m"
     auto_revert       = true
-    auto_promote      = true
+    auto_promote      = false
   }
 
   # ---------------------------------------------------------------------------
@@ -270,7 +280,7 @@ job "crowler" {
     }
 
     dynamic "volume" {
-      for_each = var.database_enabled ? toset(["db-data"]) : toset([])
+      for_each = var.database_enabled ? ["db-data"] : []
       labels   = [volume.value]
 
       content {
@@ -314,9 +324,9 @@ job "crowler" {
       }
 
       env {
-        POSTGRES_DB      = "SitesIndex"
-        POSTGRES_USER    = "postgres"
-        TZ               = "UTC"
+        POSTGRES_DB       = "SitesIndex"
+        POSTGRES_USER     = "postgres"
+        TZ                = "UTC"
         MICROSERVICE_NAME = "crowler-db"
       }
 
@@ -335,7 +345,7 @@ job "crowler" {
       }
 
       dynamic "volume_mount" {
-        for_each = var.database_enabled ? toset(["db-data"]) : toset([])
+        for_each = var.database_enabled ? ["db-data"] : []
         iterator = db_volume
 
         content {
@@ -703,31 +713,31 @@ job "crowler" {
       }
 
       template {
-        data        = ""
+        data        = "# directory anchor\n"
         destination = "local/user/agents/.nomad-keep"
         once        = true
       }
 
       template {
-        data        = ""
+        data        = "# directory anchor\n"
         destination = "local/user/plugins/.nomad-keep"
         once        = true
       }
 
       template {
-        data        = ""
+        data        = "# directory anchor\n"
         destination = "local/user/rules/.nomad-keep"
         once        = true
       }
 
       template {
-        data        = ""
+        data        = "# directory anchor\n"
         destination = "local/user/support/.nomad-keep"
         once        = true
       }
 
       template {
-        data        = ""
+        data        = "# directory anchor\n"
         destination = "local/data/.nomad-keep"
         once        = true
       }
@@ -925,31 +935,31 @@ job "crowler" {
       }
 
       template {
-        data        = ""
+        data        = "# directory anchor\n"
         destination = "local/user/agents/.nomad-keep"
         once        = true
       }
 
       template {
-        data        = ""
+        data        = "# directory anchor\n"
         destination = "local/user/plugins/.nomad-keep"
         once        = true
       }
 
       template {
-        data        = ""
+        data        = "# directory anchor\n"
         destination = "local/user/rules/.nomad-keep"
         once        = true
       }
 
       template {
-        data        = ""
+        data        = "# directory anchor\n"
         destination = "local/user/support/.nomad-keep"
         once        = true
       }
 
       template {
-        data        = ""
+        data        = "# directory anchor\n"
         destination = "local/data/.nomad-keep"
         once        = true
       }
@@ -1129,31 +1139,31 @@ job "crowler" {
       }
 
       template {
-        data        = ""
+        data        = "# directory anchor\n"
         destination = "local/user/agents/.nomad-keep"
         once        = true
       }
 
       template {
-        data        = ""
+        data        = "# directory anchor\n"
         destination = "local/user/plugins/.nomad-keep"
         once        = true
       }
 
       template {
-        data        = ""
+        data        = "# directory anchor\n"
         destination = "local/user/rules/.nomad-keep"
         once        = true
       }
 
       template {
-        data        = ""
+        data        = "# directory anchor\n"
         destination = "local/user/support/.nomad-keep"
         once        = true
       }
 
       template {
-        data        = ""
+        data        = "# directory anchor\n"
         destination = "local/data/.nomad-keep"
         once        = true
       }
