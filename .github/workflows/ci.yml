@@ -139,6 +139,15 @@ jobs:
       - name: Validate Terraform Helm and Nomad roots
         run: bash ./scripts/validate-deployment-support.sh terraform
 
+      - name: Show generated Terraform provider lockfiles
+        shell: bash
+        run: |
+          set -euo pipefail
+          for lockfile in terraform/helm/.terraform.lock.hcl terraform/nomad/.terraform.lock.hcl; do
+            echo "===== $lockfile ====="
+            cat "$lockfile"
+          done
+
   validation-gate:
     name: Validation gate
     if: always()
