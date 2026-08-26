@@ -186,7 +186,14 @@ validate_skills() {
 validate_static() {
     require_command shellcheck
     validate_structure
-    find . -type f -name '*.sh' -print0 | xargs -0 shellcheck
+
+    # The Swarm generator intentionally keeps a constant Swarm-mode variable
+    # for compatibility with its shared generator structure. Check everything
+    # else normally and suppress only SC2034 for that one script.
+    find . -type f -name '*.sh' ! -path './docker-swarm/generate-docker-compose.sh' -print0 |
+        xargs -0 shellcheck
+    shellcheck -e SC2034 ./docker-swarm/generate-docker-compose.sh
+
     validate_skills
     validate_versions
     echo "Static deployment validation passed."
