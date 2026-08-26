@@ -14,10 +14,10 @@ usage() {
 Usage: bash ./scripts/validate-deployment-support.sh <target>
 
 Targets:
-  static       Shell scripts, repository structure, and AI skill structure
+  static       Shell scripts, repository structure, versions, and AI skill structure
   compose      Generate and validate Docker Compose output
   swarm        Generate and validate Docker Swarm output
-  kubernetes   Validate raw Kubernetes manifests locally
+  kubernetes   Validate raw Kubernetes manifests with kubeconform
   helm         Lint and render the Helm chart
   nomad        Format-check and validate the Nomad jobspec
   terraform    Format-check and validate both Terraform roots
@@ -84,6 +84,7 @@ validate_structure() {
         common/config/config.default \
         common/config/config.default.remote \
         docker-compose/generate-docker-compose.sh \
+        docker-swarm/generate-docker-compose.sh \
         docker-swarm/README.md \
         kubernetes/base \
         helm/thecrowler/Chart.yaml \
@@ -105,11 +106,40 @@ validate_structure() {
     done
 }
 
+validate_versions() {
+    local expected_crowler="2.1.0"
+    local expected_vdi="4.28.1-20260819"
+
+    grep -q "^CROWLER_VERSION=${expected_crowler}$" common/env/env_template || {
+        echo "ERROR: common/env/env_template CROWLER_VERSION must be ${expected_crowler}." >&2
+        return 1
+    }
+    grep -q "^CROWLER_VDI_VERSION=${expected_vdi}$" common/env/env_template || {
+        echo "ERROR: common/env/env_template CROWLER_VDI_VERSION must be ${expected_vdi}." >&2
+        return 1
+    }
+    grep -q "appVersion: \"${expected_crowler}\"" helm/thecrowler/Chart.yaml || {
+        echo "ERROR: Helm appVersion is out of sync with ${expected_crowler}." >&2
+        return 1
+    }
+    grep -q "crowlerVersion: \"${expected_crowler}\"" helm/thecrowler/values.yaml || {
+        echo "ERROR: Helm default CROWler version is out of sync." >&2
+        return 1
+    }
+    grep -q "vdiVersion: \"${expected_vdi}\"" helm/thecrowler/values.yaml || {
+        echo "ERROR: Helm default VDI version is out of sync." >&2
+        return 1
+    }
+    if grep -Rqs 'zfpsystems/crowler-.*:2\.0\.3' kubernetes/base; then
+        echo "ERROR: raw Kubernetes manifests still reference CROWler 2.0.3." >&2
+        return 1
+    fi
+
+    echo "Deployment version defaults are consistent."
+}
+
 validate_skills() {
-    local skill_dir
-    local skill_file
-    local skill_name
-    local declared_name
+    local skill_dir skill_file skill_name declared_name
     local count=0
 
     for skill_dir in .agents/skills/*; do
@@ -117,46 +147,32 @@ validate_skills() {
         skill_file="$skill_dir/SKILL.md"
         skill_name="$(basename "$skill_dir")"
 
-        if [ ! -f "$skill_file" ]; then
+        [ -f "$skill_file" ] || {
             echo "ERROR: AI skill is missing SKILL.md: $skill_dir" >&2
             return 1
-        fi
-
-        if [ "$(head -n 1 "$skill_file")" != "---" ]; then
+        }
+        [ "$(head -n 1 "$skill_file")" = "---" ] || {
             echo "ERROR: AI skill does not start with YAML front matter: $skill_file" >&2
             return 1
-        fi
+        }
 
         declared_name="$(sed -n 's/^name:[[:space:]]*//p' "$skill_file" | head -n 1)"
-        if [ "$declared_name" != "$skill_name" ]; then
+        [ "$declared_name" = "$skill_name" ] || {
             echo "ERROR: AI skill name '$declared_name' does not match directory '$skill_name'." >&2
             return 1
-        fi
-
-        grep -q '^description:' "$skill_file" || {
-            echo "ERROR: AI skill is missing description: $skill_file" >&2
-            return 1
-        }
-        grep -q '^compatibility:' "$skill_file" || {
-            echo "ERROR: AI skill is missing compatibility: $skill_file" >&2
-            return 1
-        }
-        grep -q '^[[:space:]]*project:[[:space:]]*thecrowler' "$skill_file" || {
-            echo "ERROR: AI skill is missing project metadata: $skill_file" >&2
-            return 1
-        }
-        grep -q '^[[:space:]]*repository:[[:space:]]*pzaino/thecrowler-deployment-support' "$skill_file" || {
-            echo "ERROR: AI skill is missing repository metadata: $skill_file" >&2
-            return 1
         }
 
+        grep -q '^description:' "$skill_file" || return 1
+        grep -q '^compatibility:' "$skill_file" || return 1
+        grep -q '^[[:space:]]*project:[[:space:]]*thecrowler' "$skill_file" || return 1
+        grep -q '^[[:space:]]*repository:[[:space:]]*pzaino/thecrowler-deployment-support' "$skill_file" || return 1
         count=$((count + 1))
     done
 
-    if [ "$count" -lt 8 ]; then
+    [ "$count" -ge 8 ] || {
         echo "ERROR: expected at least 8 deployment/validation AI skills, found $count." >&2
         return 1
-    fi
+    }
 
     if grep -Eq '\|[[:space:]]*`(deploy|validate)-[^`]+`[^|]*\|[^|]*\|[[:space:]]*Planned[[:space:]]*\|' .agents/skills/README.md; then
         echo "ERROR: the AI skill index still contains planned deployment/validation skills." >&2
@@ -171,18 +187,14 @@ validate_static() {
     validate_structure
     find . -type f -name '*.sh' -print0 | xargs -0 shellcheck
     validate_skills
+    validate_versions
     echo "Static deployment validation passed."
 }
 
 validate_compose() {
     require_command docker
     ensure_runtime_inputs
-    ./docker-compose/generate-docker-compose.sh \
-        -e=1 \
-        -v=1 \
-        --prom=no \
-        --pg=yes \
-        --no_jaeger
+    ./docker-compose/generate-docker-compose.sh -e=1 -v=1 --prom=no --pg=yes --no_jaeger
     docker compose --env-file .env -f docker-compose.yml config >/dev/null
     echo "Docker Compose generation and validation passed."
 }
@@ -190,13 +202,7 @@ validate_compose() {
 validate_swarm() {
     require_command docker
     ensure_runtime_inputs
-    ./docker-compose/generate-docker-compose.sh \
-        -e=2 \
-        -v=2 \
-        --prom=no \
-        --pg=yes \
-        --no_jaeger \
-        --swarm=yes
+    ./docker-swarm/generate-docker-compose.sh -e=2 -v=2 --prom=no --pg=yes --no_jaeger --swarm=yes
 
     set -a
     # shellcheck disable=SC1091
@@ -219,15 +225,17 @@ validate_swarm() {
 }
 
 validate_kubernetes() {
-    require_command kubectl
-    kubectl apply --dry-run=client --validate=false -R -f kubernetes/base/ >/dev/null
-    echo "Raw Kubernetes manifest validation passed."
+    require_command kubeconform
+    kubeconform -strict -summary -kubernetes-version 1.32.0 kubernetes/base/
+    echo "Raw Kubernetes schema validation passed."
 }
 
 validate_helm() {
     require_command helm
+    require_command kubeconform
     helm lint helm/thecrowler
-    helm template crowler helm/thecrowler --namespace crowler >/dev/null
+    helm template crowler helm/thecrowler --namespace crowler | \
+        kubeconform -strict -summary -kubernetes-version 1.32.0
     echo "Helm validation passed."
 }
 
