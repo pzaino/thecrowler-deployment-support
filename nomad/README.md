@@ -148,35 +148,70 @@ export NOMAD_NAMESPACE="default"
 If ACLs are enabled, provide your operator token through the normal Nomad
 mechanism.
 
-## 5. Create the PostgreSQL Volume
+`NOMAD_NAMESPACE` is also propagated to the jobspec, Nomad Variable operations,
+and bundled host-volume operations so those resources remain in the same
+namespace.
 
-When using bundled PostgreSQL:
+## 5. Bundled PostgreSQL Volume
+
+The default `run` command idempotently ensures that the bundled PostgreSQL
+dynamic host volume exists before submitting the job:
 
 ```bash
-./nomad/deploy.sh volume-create
+./nomad/deploy.sh run
 ```
 
-This creates the dynamic host volume:
+The volume name is:
 
 ```text
 crowler-db-data
 ```
 
-using Nomad's built-in `mkdir` host-volume plugin.
+and it uses Nomad's built-in `mkdir` host-volume plugin.
 
-This is node-local storage. For production databases requiring node
-independence or stronger durability, use external PostgreSQL or replace the
-volume strategy with suitable shared/CSI-backed storage.
+To check/create only the missing volume without submitting the job:
 
-Do not repeatedly create new database volumes.
+```bash
+./nomad/deploy.sh volume-ensure
+```
 
-## 6. Synchronize `.env`
+Use `volume-create` only when you explicitly want an unconditional create
+operation:
+
+```bash
+./nomad/deploy.sh volume-create
+```
+
+If database storage is managed outside this deployment, set:
+
+```bash
+export NOMAD_MANAGE_DATABASE_VOLUME=no
+```
+
+before `run` and configure `database_volume_source` accordingly.
+
+The default volume is node-local storage. For production databases requiring
+node independence or stronger durability, use external PostgreSQL or replace
+the volume strategy with suitable shared/CSI-backed storage.
+
+Do not recreate or delete persistent database volumes during ordinary
+troubleshooting.
+
+## 6. Environment Drift and Synchronization
+
+To compare root `.env` with the existing Nomad Variable without modifying it:
+
+```bash
+./nomad/deploy.sh env-check
+```
+
+To explicitly synchronize the environment:
 
 ```bash
 ./nomad/deploy.sh env-sync
 ```
 
-The script:
+The synchronization path:
 
 1. reads root `.env`
 2. excludes values controlled by Nomad service discovery
@@ -212,9 +247,11 @@ nomad job validate
 ./nomad/deploy.sh plan
 ```
 
-`plan` synchronizes `.env` first.
+`plan` is intentionally read-only. It performs the environment drift check and
+then runs `nomad job plan`; it does **not** write the Nomad Variable, create the
+database volume, or submit the job.
 
-Review the scheduler plan before applying it.
+Review both the environment drift output and scheduler plan before applying.
 
 ## 9. Deploy
 
@@ -222,7 +259,8 @@ Review the scheduler plan before applying it.
 ./nomad/deploy.sh run
 ```
 
-`run` synchronizes `.env` and submits or updates the job.
+`run` ensures bundled database storage when enabled, synchronizes `.env`, and
+submits or updates the job.
 
 ## 10. Inspect
 
@@ -409,3 +447,4 @@ Do not:
 * use privileged containers by default
 * replace official images with local builds
 * assume local host volumes are highly available
+* treat `plan` as an apply or environment synchronization operation
