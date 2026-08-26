@@ -1,8 +1,28 @@
-# IDEs artifacts
+# IDE artifacts
 .vscode/
 .idea/
 
+# Root deployment runtime files
 .env
 config.yaml
+docker-compose.yml
+
+# Kubernetes / Helm local secrets
 kubernetes/secret.yaml
 helm/**/values.private.yaml
+
+# Nomad local overrides
+nomad/values.hcl
+
+# Terraform local working data and sensitive state
+**/.terraform/
+**/*.tfstate
+**/*.tfstate.*
+**/*.tfplan
+**/terraform.tfvars
+**/*.auto.tfvars
+!**/terraform.tfvars.example
+
+# Local kubeconfig / credentials accidentally created under the repository
+kubeconfig
+*.kubeconfig
