@@ -11,7 +11,7 @@ on:
       vdi_version:
         description: CROWler VDI image tag to smoke test
         required: true
-        default: 4.28.1-20260807
+        default: 4.28.1-20260819
         type: string
 
 permissions:
@@ -23,7 +23,7 @@ concurrency:
 
 jobs:
   compose-image-smoke:
-    name: Compose image smoke (${{ matrix.arch }})
+    name: Compose runtime smoke (${{ matrix.arch }})
     strategy:
       fail-fast: false
       matrix:
@@ -37,7 +37,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Prepare smoke deployment
         shell: bash
@@ -55,6 +55,7 @@ jobs:
           sed -i "s/^DOCKER_POSTGRES_PASSWORD=.*/DOCKER_POSTGRES_PASSWORD='smoke-only'/" .env
           sed -i "s/^DOCKER_CROWLER_DB_PASSWORD=.*/DOCKER_CROWLER_DB_PASSWORD='smoke-only'/" .env
           sed -i "s/^SEL_PASSWD=.*/SEL_PASSWD='smoke-only'/" .env
+          printf 'SE_ENABLE_TRACING=false\n' >> .env
 
           ./docker-compose/generate-docker-compose.sh \
             -e=1 \
@@ -92,12 +93,7 @@ jobs:
             fi
           done
 
-      - name: Create deployment containers
-        run: |
-          docker compose create
-          docker compose ps -a
-
-      - name: Verify expected services were created
+      - name: Verify expected services
         shell: bash
         run: |
           set -euo pipefail
@@ -109,8 +105,61 @@ jobs:
             fi
           done
 
+      - name: Start smoke deployment
+        run: |
+          docker compose up -d
+          docker compose ps -a
+
+      - name: Wait for runtime health
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          wait_for_service() {
+            local service="$1"
+            local require_health="$2"
+            local deadline=$((SECONDS + 600))
+
+            while [ "$SECONDS" -lt "$deadline" ]; do
+              local container_id
+              container_id="$(docker compose ps -q "$service")"
+              if [ -n "$container_id" ]; then
+                local state health
+                state="$(docker inspect "$container_id" --format '{{.State.Status}}')"
+                health="$(docker inspect "$container_id" --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}')"
+                echo "$service state=$state health=$health"
+
+                if [ "$require_health" = "yes" ] && [ "$health" = "healthy" ]; then
+                  return 0
+                fi
+                if [ "$require_health" = "no" ] && [ "$state" = "running" ]; then
+                  return 0
+                fi
+                if [ "$state" = "exited" ] || [ "$state" = "dead" ]; then
+                  docker logs "$container_id" || true
+                  return 1
+                fi
+              fi
+              sleep 10
+            done
+
+            echo "ERROR: timed out waiting for $service" >&2
+            docker compose ps -a
+            return 1
+          }
+
+          wait_for_service crowler-db yes
+          wait_for_service crowler-vdi-1 no
+          wait_for_service crowler-api yes
+          wait_for_service crowler-events yes
+          wait_for_service crowler-engine-1 yes
+
+      - name: Show final smoke status
+        run: docker compose ps -a
+
       - name: Clean smoke deployment
         if: always()
         run: |
+          docker compose logs --no-color --tail=100 || true
           docker compose down -v --remove-orphans || true
           rm -f .env config.yaml docker-compose.yml
