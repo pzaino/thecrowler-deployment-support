@@ -51,7 +51,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Protect apply operations
         shell: bash
@@ -121,11 +121,11 @@ jobs:
 
       - name: Set up Helm
         if: inputs.backend == 'helm'
-        uses: azure/setup-helm@1a275c3b69536ee54be43f2070a358922e12c8d4 # v4
+        uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5
 
       - name: Set up kubectl
         if: inputs.backend == 'helm'
-        uses: azure/setup-kubectl@776406bce94f63e41d621b960d78ee25c8b76ede # v4
+        uses: azure/setup-kubectl@829323503d1be3d00ca8346e5391ca0b07a9ab0d # v5
 
       - name: Configure Kubernetes access
         if: inputs.backend == 'helm'
