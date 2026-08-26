@@ -69,8 +69,6 @@ set +a
 
 export NOMAD_NAMESPACE="${NOMAD_NAMESPACE:-default}"
 export NOMAD_VAR_namespace="$NOMAD_NAMESPACE"
-
-# Keep image versions consistent with the other deployment backends.
 export NOMAD_VAR_crowler_version="${CROWLER_VERSION:-2.1.0}"
 export NOMAD_VAR_vdi_version="${CROWLER_VDI_VERSION:-4.28.1-20260819}"
 
@@ -107,12 +105,30 @@ ensure_database_volume() {
     nomad volume create -namespace="$NOMAD_NAMESPACE" "$volume_file"
 }
 
+check_nomad_format() {
+    local file="$1"
+    if nomad fmt -check "$file" >/dev/null; then
+        return 0
+    fi
+
+    local format_dir
+    format_dir="$(mktemp -d)"
+    local format_file="$format_dir/$(basename "$file")"
+    cp "$file" "$format_file"
+    nomad fmt "$format_file" >/dev/null
+
+    echo "ERROR: Nomad formatting check failed for $file. Canonical diff:" >&2
+    diff -u "$file" "$format_file" >&2 || true
+    rm -rf "$format_dir"
+    return 1
+}
+
 case "$command_name" in
     validate)
         ./nomad/preflight.sh
-        nomad fmt -check "$job_file"
+        check_nomad_format "$job_file"
         if [ -f "nomad/values.hcl" ]; then
-            nomad fmt -check "nomad/values.hcl"
+            check_nomad_format "nomad/values.hcl"
         fi
         nomad job validate "${var_args[@]}" "$job_file"
         ;;
