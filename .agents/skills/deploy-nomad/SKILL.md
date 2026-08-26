@@ -91,17 +91,26 @@ Use another delivery strategy for large/binary/frequently changing content.
 
 ## Secrets and Environment
 
-Synchronize root `.env` to:
+The runtime Nomad Variable is:
 
 ```text
 nomad/jobs/crowler/env
 ```
 
-using:
+Use a read-only comparison before applying changes:
+
+```bash
+./nomad/deploy.sh env-check
+```
+
+Synchronize root `.env` only when a state-changing operation is intended:
 
 ```bash
 ./nomad/deploy.sh env-sync
 ```
+
+`./nomad/deploy.sh plan` performs the same read-only drift check and must never
+write the Nomad Variable.
 
 Do not place production credentials in HCL variable files.
 
@@ -127,17 +136,22 @@ count must be at least `vdi_count`.
 
 ## PostgreSQL
 
-Bundled PostgreSQL requires the dynamic host volume:
+Bundled PostgreSQL uses the dynamic host volume:
 
 ```text
 crowler-db-data
 ```
 
-Create once with:
+`./nomad/deploy.sh run` idempotently ensures the volume exists before job
+submission when `NOMAD_MANAGE_DATABASE_VOLUME=yes`, which is the default.
+
+To ensure only the volume without submitting the job:
 
 ```bash
-./nomad/deploy.sh volume-create
+./nomad/deploy.sh volume-ensure
 ```
+
+Use `volume-create` only for an explicit unconditional create operation.
 
 Do not recreate or delete persistent database storage during ordinary
 troubleshooting.
@@ -152,6 +166,12 @@ designed shared/CSI storage backend.
 ./nomad/deploy.sh plan
 ./nomad/deploy.sh run
 ```
+
+Semantics:
+
+* `validate` is local/non-destructive validation;
+* `plan` is read-only and must not synchronize environment values, create volumes, or submit a job;
+* `run` may ensure bundled DB storage, synchronizes `.env`, and submits/updates the job.
 
 Inspect:
 
@@ -179,3 +199,4 @@ Never:
 * delete persistent volumes routinely
 * silently switch to locally built CROWler images
 * claim a local dynamic host volume is highly available
+* mutate Nomad Variables, volumes, or jobs during a plan operation
