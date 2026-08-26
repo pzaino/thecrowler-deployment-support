@@ -26,6 +26,8 @@ AMD64 and ARM64 are supported. You can run the CROWler on common x86-64 systems 
 The repository includes CI validation for deployment definitions and controlled
 CD workflows for Helm/Kubernetes and HashiCorp Nomad.
 
+All backend validation jobs converge on a single `Validation gate` status. For a production-quality repository, protect `main` with a branch rule or ruleset and require that status before merging.
+
 Production deployments can be protected with GitHub Environments and required
 reviewers. Continuous deployment after successful validation on `main` is
 available as an explicit opt-in and is disabled by default.
@@ -94,9 +96,9 @@ terraform
 skills
 ```
 
-The required GitHub Actions CI runs the same checks across all advertised deployment backends.
+GitHub Actions runs the same checks across all advertised deployment backends. Raw Kubernetes and rendered Helm resources are checked against strict Kubernetes schemas, and the static pass also detects deployment-version drift.
 
-For published-image verification, the on-demand **Smoke published CROWler deployment** workflow pulls and creates a minimal Compose deployment on native AMD64 and ARM64 GitHub runners and verifies that the official images resolve to the expected architecture.
+For published-image verification, the on-demand **Smoke published CROWler deployment** workflow starts a minimal Compose deployment on native AMD64 and ARM64 GitHub runners, verifies image architecture, waits for core runtime health, captures diagnostics, and removes the ephemeral deployment afterward.
 
 Structural validation and smoke testing do not replace a backend-specific deployment plan and live health checks against the final target.
 
