@@ -1,0 +1,89 @@
+name: Validate deployment support
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deployment-validation-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  shell-and-static-validation:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install validation dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y shellcheck jq
+
+      - name: ShellCheck deployment scripts
+        run: |
+          find . -type f -name '*.sh' -print0 | xargs -0 shellcheck
+
+      - name: Verify required repository structure
+        run: |
+          test -d user/agents
+          test -d user/plugins
+          test -d user/rules
+          test -d user/support
+          test -f common/env/env_template
+          test -f common/config/config.default
+          test -f common/config/config.default.remote
+
+  helm-validation:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+
+      - name: Helm lint
+        run: helm lint helm/thecrowler
+
+      - name: Helm template
+        run: helm template crowler helm/thecrowler --namespace crowler >/dev/null
+
+  terraform-validation:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        backend:
+          - helm
+          - nomad
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: '1.15.0'
+
+      - name: Prepare CI runtime inputs
+        run: |
+          cp common/env/env_template .env
+          cp common/config/config.default.remote config.yaml
+          sed -i "s/^DOCKER_POSTGRES_PASSWORD=.*/DOCKER_POSTGRES_PASSWORD='ci-only'/" .env
+          sed -i "s/^DOCKER_CROWLER_DB_PASSWORD=.*/DOCKER_CROWLER_DB_PASSWORD='ci-only'/" .env
+          sed -i "s/^SEL_PASSWD=.*/SEL_PASSWD='ci-only'/" .env
+
+      - name: Terraform fmt
+        run: terraform fmt -check -recursive terraform/${{ matrix.backend }}
+
+      - name: Terraform init without backend
+        run: terraform -chdir=terraform/${{ matrix.backend }} init -backend=false -input=false
+
+      - name: Terraform validate
+        run: ./terraform/run.sh ${{ matrix.backend }} validate
