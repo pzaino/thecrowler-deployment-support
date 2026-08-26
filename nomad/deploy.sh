@@ -61,7 +61,7 @@ set +a
 
 # Keep image versions consistent with the other deployment backends.
 export NOMAD_VAR_crowler_version="${CROWLER_VERSION:-latest}"
-export NOMAD_VAR_vdi_version="${CROWLER_VDI_VERSION:-4.28.1-20260807}"
+export NOMAD_VAR_vdi_version="${CROWLER_VDI_VERSION:-4.28.1-20260819}"
 
 var_args=()
 if [ -f "nomad/values.hcl" ]; then

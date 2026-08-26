@@ -1,6 +1,6 @@
 global:
-  crowlerVersion: "2.0.3"
-  vdiVersion: "4.28.1-20260807"
+  crowlerVersion: "2.1.0"
+  vdiVersion: "4.28.1-20260819"
   imagePullPolicy: IfNotPresent
   timezone: UTC
 

@@ -27,12 +27,12 @@ variable "release_name" {
 
 variable "crowler_version" {
   type    = string
-  default = "2.0.3"
+  default = "2.1.0"
 }
 
 variable "vdi_version" {
   type    = string
-  default = "4.28.1-20260807"
+  default = "4.28.1-20260819"
 }
 
 variable "engine_replicas" {

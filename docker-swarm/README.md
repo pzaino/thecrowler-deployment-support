@@ -17,11 +17,14 @@ Swarm adds:
 * service-level resource limits and restart policies;
 * versioned Docker Configs for `config.yaml` and user content.
 
-The generator is shared with Docker Compose. Swarm mode is enabled with:
+Swarm has a dedicated generator because it must convert runtime configuration
+and `user/*` files into immutable, content-hashed Docker Config objects. Use:
 
 ```text
---swarm=yes
+./docker-swarm/generate-docker-compose.sh
 ```
+
+The ordinary Compose generator is intentionally not the Swarm source of truth.
 
 ## Requirements
 
@@ -121,7 +124,7 @@ For example, generate two Engines, two VDIs, bundled PostgreSQL, and
 Pushgateway:
 
 ```bash
-./docker-compose/generate-docker-compose.sh \
+./docker-swarm/generate-docker-compose.sh \
   -e=2 \
   -v=2 \
   --prom=yes \
@@ -136,12 +139,12 @@ docker-compose.yml
 ```
 
 The file name is intentionally shared with the Compose workflow, but its
-contents are generated for Swarm when `--swarm=yes` is selected.
+contents are generated specifically for Swarm.
 
 Run the generator help for the full set of sizing and service options:
 
 ```bash
-./docker-compose/generate-docker-compose.sh --help
+./docker-swarm/generate-docker-compose.sh --help
 ```
 
 ## 5. Validate the stack
@@ -158,6 +161,12 @@ Then validate:
 
 ```bash
 docker stack config -c docker-compose.yml
+```
+
+You can also run the repository-wide Swarm validator:
+
+```bash
+bash ./scripts/validate-deployment-support.sh swarm
 ```
 
 Do this before every deployment change.
@@ -223,7 +232,7 @@ container.
 Update workflow:
 
 ```bash
-./docker-compose/generate-docker-compose.sh \
+./docker-swarm/generate-docker-compose.sh \
   -e=2 \
   -v=2 \
   --prom=yes \
@@ -253,7 +262,7 @@ For a persistent desired state, regenerate with the desired counts and redeploy,
 for example:
 
 ```bash
-./docker-compose/generate-docker-compose.sh \
+./docker-swarm/generate-docker-compose.sh \
   -e=4 \
   -v=4 \
   --prom=yes \

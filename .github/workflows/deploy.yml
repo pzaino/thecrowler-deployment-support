@@ -51,7 +51,18 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Protect apply operations
+        shell: bash
+        env:
+          OPERATION: ${{ inputs.operation }}
+        run: |
+          set -euo pipefail
+          if [ "$OPERATION" = "apply" ] && [ "$GITHUB_REF_NAME" != "main" ]; then
+            echo "ERROR: deployment apply is restricted to the main branch." >&2
+            exit 1
+          fi
 
       - name: Prepare runtime configuration
         shell: bash
@@ -110,11 +121,11 @@ jobs:
 
       - name: Set up Helm
         if: inputs.backend == 'helm'
-        uses: azure/setup-helm@v4
+        uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5
 
       - name: Set up kubectl
         if: inputs.backend == 'helm'
-        uses: azure/setup-kubectl@v4
+        uses: azure/setup-kubectl@829323503d1be3d00ca8346e5391ca0b07a9ab0d # v5
 
       - name: Configure Kubernetes access
         if: inputs.backend == 'helm'
@@ -127,11 +138,14 @@ jobs:
             echo "ERROR: GitHub Environment secret KUBECONFIG is required for Helm deployment." >&2
             exit 1
           fi
-          mkdir -p "$HOME/.kube"
-          printf '%s\n' "$KUBECONFIG_CONTENT" > "$HOME/.kube/config"
-          chmod 600 "$HOME/.kube/config"
-          kubectl version --client
-          kubectl cluster-info
+
+          kubeconfig_path="${RUNNER_TEMP}/crowler-kubeconfig"
+          printf '%s\n' "$KUBECONFIG_CONTENT" > "$kubeconfig_path"
+          chmod 600 "$kubeconfig_path"
+          echo "KUBECONFIG=$kubeconfig_path" >> "$GITHUB_ENV"
+
+          KUBECONFIG="$kubeconfig_path" kubectl version --client
+          KUBECONFIG="$kubeconfig_path" kubectl cluster-info
 
       - name: Validate Helm deployment
         if: inputs.backend == 'helm'
@@ -154,7 +168,12 @@ jobs:
             --namespace crowler \
             --create-namespace \
             --set-string global.crowlerVersion="${CROWLER_VERSION:-latest}" \
-            --set-string global.vdiVersion="${CROWLER_VDI_VERSION:-4.28.1-20260807}" \
+            --set-string global.vdiVersion="${CROWLER_VDI_VERSION:-4.28.1-20260819}" \
+            --set userContent.enabled=true \
+            --set-string userContent.agentsConfigMap=crowler-user-agents \
+            --set-string userContent.pluginsConfigMap=crowler-user-plugins \
+            --set-string userContent.rulesConfigMap=crowler-user-rules \
+            --set-string userContent.supportConfigMap=crowler-user-support \
             --dry-run=server
 
       - name: Apply Helm deployment
@@ -173,22 +192,51 @@ jobs:
             --from-file=config.yaml=./config.yaml \
             --dry-run=client -o yaml | kubectl apply -f -
 
-          kubectl create secret generic crowler-secrets \
-            -n crowler \
-            --from-literal=DOCKER_POSTGRES_PASSWORD="$DOCKER_POSTGRES_PASSWORD" \
-            --from-literal=DOCKER_CROWLER_DB_USER="$DOCKER_CROWLER_DB_USER" \
-            --from-literal=DOCKER_CROWLER_DB_PASSWORD="$DOCKER_CROWLER_DB_PASSWORD" \
-            --from-literal=SEL_PASSWD="$SEL_PASSWD" \
-            --dry-run=client -o yaml | kubectl apply -f -
+          secret_args=(kubectl create secret generic crowler-secrets -n crowler --dry-run=client -o yaml)
+          while IFS= read -r key; do
+            [ -n "$key" ] || continue
+            secret_args+=(--from-literal="${key}=${!key-}")
+          done < <(
+            sed -nE 's/^[[:space:]]*(export[[:space:]]+)?([A-Za-z_][A-Za-z0-9_]*)=.*/\2/p' .env |
+              awk '!seen[$0]++'
+          )
+          "${secret_args[@]}" | kubectl apply -f -
+
+          apply_user_configmap() {
+            local name="$1"
+            local directory="$2"
+            if find "$directory" -maxdepth 1 -type f ! -name '.*' -print -quit | grep -q .; then
+              kubectl create configmap "$name" -n crowler \
+                --from-file="$directory" \
+                --dry-run=client -o yaml | kubectl apply -f -
+            else
+              kubectl create configmap "$name" -n crowler \
+                --dry-run=client -o yaml | kubectl apply -f -
+            fi
+          }
+
+          apply_user_configmap crowler-user-agents user/agents
+          apply_user_configmap crowler-user-plugins user/plugins
+          apply_user_configmap crowler-user-rules user/rules
+          apply_user_configmap crowler-user-support user/support
 
           rollout_token="$(date +%s)"
           helm upgrade --install crowler helm/thecrowler \
             --namespace crowler \
             --create-namespace \
+            --atomic \
+            --wait \
+            --timeout 10m \
             --set-string global.crowlerVersion="${CROWLER_VERSION:-latest}" \
-            --set-string global.vdiVersion="${CROWLER_VDI_VERSION:-4.28.1-20260807}" \
+            --set-string global.vdiVersion="${CROWLER_VDI_VERSION:-4.28.1-20260819}" \
             --set-string config.rolloutToken="$rollout_token" \
-            --set-string secrets.rolloutToken="$rollout_token"
+            --set-string secrets.rolloutToken="$rollout_token" \
+            --set userContent.enabled=true \
+            --set-string userContent.agentsConfigMap=crowler-user-agents \
+            --set-string userContent.pluginsConfigMap=crowler-user-plugins \
+            --set-string userContent.rulesConfigMap=crowler-user-rules \
+            --set-string userContent.supportConfigMap=crowler-user-support \
+            --set-string userContent.rolloutToken="$rollout_token"
 
           kubectl rollout status deployment/crowler-engine -n crowler --timeout=10m
           kubectl rollout status deployment/crowler-api -n crowler --timeout=10m
@@ -208,9 +256,12 @@ jobs:
             *) echo "ERROR: unsupported runner architecture: $arch" >&2; exit 1 ;;
           esac
 
-          curl -fsSLo /tmp/nomad.zip \
-            "https://releases.hashicorp.com/nomad/${NOMAD_VERSION}/nomad_${NOMAD_VERSION}_linux_${nomad_arch}.zip"
-          unzip -q /tmp/nomad.zip -d /tmp/nomad-bin
+          archive="nomad_${NOMAD_VERSION}_linux_${nomad_arch}.zip"
+          base="https://releases.hashicorp.com/nomad/${NOMAD_VERSION}"
+          curl -fsSLo "/tmp/$archive" "$base/$archive"
+          curl -fsSLo /tmp/NOMAD_SHA256SUMS "$base/nomad_${NOMAD_VERSION}_SHA256SUMS"
+          (cd /tmp && grep "  ${archive}$" NOMAD_SHA256SUMS | sha256sum -c -)
+          unzip -q "/tmp/$archive" -d /tmp/nomad-bin
           sudo install -m 0755 /tmp/nomad-bin/nomad /usr/local/bin/nomad
           nomad version
 
@@ -258,4 +309,6 @@ jobs:
         shell: bash
         run: |
           rm -f .env config.yaml
-          rm -f "$HOME/.kube/config"
+          if [ -n "${KUBECONFIG:-}" ]; then
+            rm -f "$KUBECONFIG"
+          fi

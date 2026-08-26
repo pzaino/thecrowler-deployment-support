@@ -29,7 +29,7 @@ variable "crowler_version" {
 
 variable "vdi_version" {
   type    = string
-  default = "4.28.1-20260807"
+  default = "4.28.1-20260819"
 }
 
 variable "engine_count" {
@@ -159,9 +159,9 @@ variable "pushgateway_memory" {
 
 locals {
   # These functions run in the local Nomad CLI parsing context.
-  user_agents = tolist(fileset("./user/agents", "*.{yaml,yml,json}"))
+  user_agents  = tolist(fileset("./user/agents", "*.{yaml,yml,json}"))
   user_plugins = tolist(fileset("./user/plugins", "*.js"))
-  user_rules = tolist(fileset("./user/rules", "*.{yaml,yml,json}"))
+  user_rules   = tolist(fileset("./user/rules", "*.{yaml,yml,json}"))
   user_support = [
     for filename in fileset("./user/support", "*") : filename
     if !startswith(filename, ".")
@@ -263,8 +263,6 @@ job "crowler" {
     network {
       mode = "bridge"
 
-      # CROWler's standard database configuration uses port 5432, so keep the
-      # Nomad host/service port stable as well.
       port "db" {
         static = 5432
         to     = 5432
@@ -316,9 +314,9 @@ job "crowler" {
       }
 
       env {
-        POSTGRES_DB     = "SitesIndex"
-        POSTGRES_USER   = "postgres"
-        TZ              = "UTC"
+        POSTGRES_DB      = "SitesIndex"
+        POSTGRES_USER    = "postgres"
+        TZ               = "UTC"
         MICROSERVICE_NAME = "crowler-db"
       }
 
@@ -360,8 +358,6 @@ job "crowler" {
   group "vdi" {
     count = var.vdi_count
 
-    # The CROWler config expects Selenium on port 4444. Each local VDI therefore
-    # uses the same static host port and must be scheduled on a different node.
     constraint {
       distinct_hosts = true
     }
@@ -427,16 +423,16 @@ job "crowler" {
       }
 
       env {
-        INSTANCE_ID               = "${NOMAD_ALLOC_INDEX}"
-        SE_SCREEN_WIDTH           = "1920"
-        SE_SCREEN_HEIGHT          = "1080"
-        SE_SCREEN_DEPTH           = "24"
-        SE_ROLE                   = "standalone"
+        INSTANCE_ID                = "${NOMAD_ALLOC_INDEX}"
+        SE_SCREEN_WIDTH            = "1920"
+        SE_SCREEN_HEIGHT           = "1080"
+        SE_SCREEN_DEPTH            = "24"
+        SE_ROLE                    = "standalone"
         SE_REJECT_UNSUPPORTED_CAPS = "true"
-        SE_NODE_ENABLE_CDP        = "true"
-        SE_OTEL_TRACES_EXPORTER   = "otlp"
-        TZ                        = "UTC"
-        MICROSERVICE_NAME         = "crowler-vdi-${NOMAD_ALLOC_INDEX}"
+        SE_NODE_ENABLE_CDP         = "true"
+        SE_OTEL_TRACES_EXPORTER    = "otlp"
+        TZ                         = "UTC"
+        MICROSERVICE_NAME          = "crowler-vdi-${NOMAD_ALLOC_INDEX}"
       }
 
       template {
@@ -511,9 +507,9 @@ job "crowler" {
 
       env {
         COLLECTOR_ZIPKIN_HTTP_PORT = "9411"
-        JAEGER_SERVICE_NAME         = "crowler-jaeger"
-        TZ                          = "UTC"
-        MICROSERVICE_NAME           = "crowler-jaeger"
+        JAEGER_SERVICE_NAME        = "crowler-jaeger"
+        TZ                         = "UTC"
+        MICROSERVICE_NAME          = "crowler-jaeger"
       }
 
       resources {
@@ -666,8 +662,8 @@ job "crowler" {
         POSTGRES_DB       = "SitesIndex"
         POSTGRES_DB_PORT  = "5432"
         POSTGRES_SSL_MODE = "disable"
-        TZ                 = "UTC"
-        MICROSERVICE_NAME  = "crowler-api"
+        TZ                = "UTC"
+        MICROSERVICE_NAME = "crowler-api"
       }
 
       template {
@@ -888,8 +884,8 @@ job "crowler" {
         POSTGRES_DB       = "SitesIndex"
         POSTGRES_DB_PORT  = "5432"
         POSTGRES_SSL_MODE = "disable"
-        TZ                 = "UTC"
-        MICROSERVICE_NAME  = "crowler-events"
+        TZ                = "UTC"
+        MICROSERVICE_NAME = "crowler-events"
       }
 
       template {
@@ -1080,13 +1076,13 @@ job "crowler" {
       }
 
       env {
-        INSTANCE_ID                     = "${NOMAD_ALLOC_INDEX}"
-        POSTGRES_DB                     = "SitesIndex"
-        POSTGRES_DB_PORT                = "5432"
-        POSTGRES_SSL_MODE               = "disable"
-        CROWLER_MAIL_LISTENER_ENABLED   = "false"
-        TZ                              = "UTC"
-        MICROSERVICE_NAME               = "crowler-engine-${NOMAD_ALLOC_INDEX}"
+        INSTANCE_ID                   = "${NOMAD_ALLOC_INDEX}"
+        POSTGRES_DB                   = "SitesIndex"
+        POSTGRES_DB_PORT              = "5432"
+        POSTGRES_SSL_MODE             = "disable"
+        CROWLER_MAIL_LISTENER_ENABLED = "false"
+        TZ                            = "UTC"
+        MICROSERVICE_NAME             = "crowler-engine-${NOMAD_ALLOC_INDEX}"
       }
 
       template {

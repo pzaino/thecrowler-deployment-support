@@ -77,7 +77,7 @@ set -a
 set +a
 
 export TF_VAR_crowler_version="${CROWLER_VERSION:-latest}"
-export TF_VAR_vdi_version="${CROWLER_VDI_VERSION:-4.28.1-20260807}"
+export TF_VAR_vdi_version="${CROWLER_VDI_VERSION:-4.28.1-20260819}"
 
 # Root .env values that are generated dynamically by deployment backends must
 # not override provider/service-discovery values.

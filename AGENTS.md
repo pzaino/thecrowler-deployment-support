@@ -95,9 +95,13 @@ Never mount over built-in `/app/agents`, `/app/plugins`, `/app/rules`, or `/app/
 
 Use read-only repository-root bind mounts.
 
+Use `docker-compose/generate-docker-compose.sh` for ordinary Compose deployments.
+
 ### Docker Swarm
 
-Do not use node-local `./user/...` bind mounts. Use versioned Swarm configs for small direct user files.
+Use `docker-swarm/generate-docker-compose.sh` as the authoritative Swarm generator.
+
+Do not use node-local `./user/...` bind mounts. Use versioned Swarm configs for small direct user files. Swarm runtime configuration and user files must be content-hashed because Docker Config objects are immutable.
 
 ### HashiCorp Nomad
 
@@ -151,11 +155,19 @@ GitHub Actions deployment must reuse the existing Helm/Kubernetes or Nomad paths
 
 Use protected GitHub Environments for production credentials and approvals.
 
+Protect `main` with a repository rule or branch rule that requires the CI `Validation gate` status before merge.
+
+Deployment `apply` is restricted to `main`; plans may be run from development branches.
+
 For private control planes, prefer a secured self-hosted runner with network access rather than exposing a private Kubernetes or Nomad API publicly.
+
+The Helm CD path must preserve the repository runtime contract for complete `.env`, `config.yaml`, and `user/*` content.
 
 Do not enable continuous deployment without explicit intent.
 
 Do not run state-changing Terraform from ephemeral CI runners unless persistent, encrypted, locked remote state has been explicitly configured.
+
+Third-party GitHub Actions must remain pinned to immutable commit SHAs. Downloaded deployment CLIs must be checksum-verified before installation.
 
 ## Credentials
 
@@ -195,13 +207,17 @@ bash ./scripts/validate-deployment-support.sh all
 
 before declaring a deployment-support change valid.
 
-The GitHub Actions CI workflow should use the same validation targets rather than maintain separate validation semantics.
+The GitHub Actions CI workflow must use the same validation targets rather than maintain separate validation semantics.
+
+Raw Kubernetes and rendered Helm resources are validated against strict Kubernetes schemas. Static validation also checks deployment-version consistency.
 
 Validation must remain non-destructive. It must not apply Kubernetes resources, submit Nomad jobs, initialize or mutate a Swarm, run Terraform apply, or delete persistent data.
 
 Validation does not prove runtime health or target reachability.
 
-Use the dedicated `Smoke published CROWler deployment` workflow when image-level deployment smoke coverage is requested, and backend-specific plan/apply plus health checks for a live environment.
+Use the dedicated `Smoke published CROWler deployment` workflow when image-level runtime coverage is requested. It starts a minimal native AMD64/ARM64 Compose deployment and waits for core health before cleanup.
+
+Use backend-specific plan/apply plus health checks for a live environment.
 
 ## Agent Skills
 

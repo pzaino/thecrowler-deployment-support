@@ -20,7 +20,7 @@ spec:
       automountServiceAccountToken: false
       containers:
         - name: crowler-events
-          image: zfpsystems/crowler-events:2.0.3
+          image: zfpsystems/crowler-events:2.1.0
           imagePullPolicy: Always
           ports:
             - name: http
