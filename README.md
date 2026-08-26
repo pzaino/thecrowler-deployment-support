@@ -3,9 +3,11 @@
 Deployment tooling and documentation for running **The CROWler** with official
 pre-built container images.
 
-Source development belongs in:
+The CROWler source can be found at:
 
 https://github.com/pzaino/thecrowler
+
+AMD64 and ARM64 are supported. You can run the CROWler on common x86-64 systems as well as 64-bit ARM systems such as modern Raspberry Pis or big ARM servers. On smaller devices, start with a small deployment and scale according to the available CPU and memory.
 
 ## Deployment Guides
 
@@ -33,6 +35,10 @@ from ephemeral GitHub runners until an operator configures persistent, locked
 remote state.
 
 See [GitHub Actions deployment automation](docs/github-actions.md).
+
+## Not sure where to start?
+
+Start with Docker Compose. You can move to an orchestrator later without changing the CROWler itself.
 
 ## Repository Root Is the Deployment Root
 
