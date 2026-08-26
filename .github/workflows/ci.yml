@@ -13,8 +13,12 @@ concurrency:
   group: deployment-validation-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  NOMAD_VERSION: '1.10.4'
+  TERRAFORM_VERSION: '1.15.0'
+
 jobs:
-  shell-and-static-validation:
+  static-and-agent-validation:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -25,65 +29,90 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y shellcheck jq
 
-      - name: ShellCheck deployment scripts
-        run: |
-          find . -type f -name '*.sh' -print0 | xargs -0 shellcheck
+      - name: Validate repository structure, shell, and AI skills
+        run: bash ./scripts/validate-deployment-support.sh static
 
-      - name: Verify required repository structure
-        run: |
-          test -d user/agents
-          test -d user/plugins
-          test -d user/rules
-          test -d user/support
-          test -f common/env/env_template
-          test -f common/config/config.default
-          test -f common/config/config.default.remote
-
-  helm-validation:
+  docker-validation:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Show Docker versions
+        run: |
+          docker version
+          docker compose version
+
+      - name: Validate generated Docker Compose deployment
+        run: bash ./scripts/validate-deployment-support.sh compose
+
+      - name: Validate generated Docker Swarm deployment
+        run: bash ./scripts/validate-deployment-support.sh swarm
+
+  kubernetes-and-helm-validation:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up kubectl
+        uses: azure/setup-kubectl@v4
 
       - name: Set up Helm
         uses: azure/setup-helm@v4
 
-      - name: Helm lint
-        run: helm lint helm/thecrowler
+      - name: Validate raw Kubernetes manifests
+        run: bash ./scripts/validate-deployment-support.sh kubernetes
 
-      - name: Helm template
-        run: helm template crowler helm/thecrowler --namespace crowler >/dev/null
+      - name: Validate Helm chart
+        run: bash ./scripts/validate-deployment-support.sh helm
 
-  terraform-validation:
+  nomad-validation:
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        backend:
-          - helm
-          - nomad
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Install validation dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y jq unzip
+
+      - name: Install Nomad CLI
+        shell: bash
+        run: |
+          set -euo pipefail
+          arch="$(uname -m)"
+          case "$arch" in
+            x86_64) nomad_arch=amd64 ;;
+            aarch64|arm64) nomad_arch=arm64 ;;
+            *) echo "ERROR: unsupported runner architecture: $arch" >&2; exit 1 ;;
+          esac
+
+          curl -fsSLo /tmp/nomad.zip \
+            "https://releases.hashicorp.com/nomad/${NOMAD_VERSION}/nomad_${NOMAD_VERSION}_linux_${nomad_arch}.zip"
+          unzip -q /tmp/nomad.zip -d /tmp/nomad-bin
+          sudo install -m 0755 /tmp/nomad-bin/nomad /usr/local/bin/nomad
+          nomad version
+
+      - name: Validate Nomad deployment
+        run: bash ./scripts/validate-deployment-support.sh nomad
+
+  terraform-validation:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install validation dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y jq
+
       - name: Set up Terraform
         uses: hashicorp/setup-terraform@v3
         with:
-          terraform_version: '1.15.0'
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
 
-      - name: Prepare CI runtime inputs
-        run: |
-          cp common/env/env_template .env
-          cp common/config/config.default.remote config.yaml
-          sed -i "s/^DOCKER_POSTGRES_PASSWORD=.*/DOCKER_POSTGRES_PASSWORD='ci-only'/" .env
-          sed -i "s/^DOCKER_CROWLER_DB_PASSWORD=.*/DOCKER_CROWLER_DB_PASSWORD='ci-only'/" .env
-          sed -i "s/^SEL_PASSWD=.*/SEL_PASSWD='ci-only'/" .env
-
-      - name: Terraform fmt
-        run: terraform fmt -check -diff -recursive terraform/${{ matrix.backend }}
-
-      - name: Terraform init without backend
-        run: terraform -chdir=terraform/${{ matrix.backend }} init -backend=false -input=false
-
-      - name: Terraform validate
-        run: ./terraform/run.sh ${{ matrix.backend }} validate
+      - name: Validate Terraform Helm and Nomad roots
+        run: bash ./scripts/validate-deployment-support.sh terraform
