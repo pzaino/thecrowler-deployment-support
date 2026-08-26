@@ -1,0 +1,116 @@
+name: Smoke published CROWler deployment
+
+on:
+  workflow_dispatch:
+    inputs:
+      crowler_version:
+        description: CROWler image tag to smoke test
+        required: true
+        default: latest
+        type: string
+      vdi_version:
+        description: CROWler VDI image tag to smoke test
+        required: true
+        default: 4.28.1-20260807
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: crowler-deployment-smoke-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  compose-image-smoke:
+    name: Compose image smoke (${{ matrix.arch }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-24.04
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Prepare smoke deployment
+        shell: bash
+        env:
+          CROWLER_VERSION_INPUT: ${{ inputs.crowler_version }}
+          CROWLER_VDI_VERSION_INPUT: ${{ inputs.vdi_version }}
+        run: |
+          set -euo pipefail
+
+          cp common/env/env_template .env
+          cp common/config/config.default config.yaml
+
+          sed -i "s/^CROWLER_VERSION=.*/CROWLER_VERSION=${CROWLER_VERSION_INPUT}/" .env
+          sed -i "s/^CROWLER_VDI_VERSION=.*/CROWLER_VDI_VERSION=${CROWLER_VDI_VERSION_INPUT}/" .env
+          sed -i "s/^DOCKER_POSTGRES_PASSWORD=.*/DOCKER_POSTGRES_PASSWORD='smoke-only'/" .env
+          sed -i "s/^DOCKER_CROWLER_DB_PASSWORD=.*/DOCKER_CROWLER_DB_PASSWORD='smoke-only'/" .env
+          sed -i "s/^SEL_PASSWD=.*/SEL_PASSWD='smoke-only'/" .env
+
+          ./docker-compose/generate-docker-compose.sh \
+            -e=1 \
+            -v=1 \
+            --prom=no \
+            --pg=yes \
+            --no_jaeger
+
+          docker compose config >/dev/null
+
+      - name: Pull published images
+        run: docker compose pull
+
+      - name: Verify native image architecture
+        shell: bash
+        env:
+          EXPECTED_ARCH: ${{ matrix.arch }}
+          CROWLER_VERSION_INPUT: ${{ inputs.crowler_version }}
+          CROWLER_VDI_VERSION_INPUT: ${{ inputs.vdi_version }}
+        run: |
+          set -euo pipefail
+
+          for image in \
+            "zfpsystems/crowler-db:${CROWLER_VERSION_INPUT}" \
+            "zfpsystems/crowler-engine:${CROWLER_VERSION_INPUT}" \
+            "zfpsystems/crowler-api:${CROWLER_VERSION_INPUT}" \
+            "zfpsystems/crowler-events:${CROWLER_VERSION_INPUT}" \
+            "zfpsystems/crowler-vdi:${CROWLER_VDI_VERSION_INPUT}"; do
+            actual_os="$(docker image inspect "$image" --format '{{.Os}}')"
+            actual_arch="$(docker image inspect "$image" --format '{{.Architecture}}')"
+            echo "$image -> $actual_os/$actual_arch"
+            if [ "$actual_os/$actual_arch" != "linux/$EXPECTED_ARCH" ]; then
+              echo "ERROR: expected linux/$EXPECTED_ARCH for $image, got $actual_os/$actual_arch" >&2
+              exit 1
+            fi
+          done
+
+      - name: Create deployment containers
+        run: |
+          docker compose create
+          docker compose ps -a
+
+      - name: Verify expected services were created
+        shell: bash
+        run: |
+          set -euo pipefail
+          services="$(docker compose config --services)"
+          for required in crowler-db crowler-engine-1 crowler-vdi-1 crowler-api crowler-events; do
+            if ! grep -Fxq "$required" <<<"$services"; then
+              echo "ERROR: expected Compose service was not generated: $required" >&2
+              exit 1
+            fi
+          done
+
+      - name: Clean smoke deployment
+        if: always()
+        run: |
+          docker compose down -v --remove-orphans || true
+          rm -f .env config.yaml docker-compose.yml
