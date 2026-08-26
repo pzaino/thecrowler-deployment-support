@@ -6,7 +6,7 @@ on:
       crowler_version:
         description: CROWler image tag to smoke test
         required: true
-        default: latest
+        default: 2.1.0
         type: string
       vdi_version:
         description: CROWler VDI image tag to smoke test
