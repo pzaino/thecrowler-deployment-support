@@ -30,13 +30,17 @@ commands.
 
 Inspect:
 
-* `docker-compose/generate-docker-compose.sh`
+* `docker-swarm/generate-docker-compose.sh`
 * `docker-swarm/README.md`
 * `user/README.md`
 * `common/env/env_template`
 * `common/config/config.default`
 * `common/config/config.default.remote`
 * `AGENTS.md`
+
+The dedicated Swarm generator is authoritative for Swarm. Do not use the
+ordinary Compose generator as a substitute, because Swarm must content-hash
+runtime configuration and user content into immutable Docker Config objects.
 
 ## Runtime Configuration
 
@@ -46,8 +50,8 @@ Engine, API, and Events require:
 /app/config.yaml
 ```
 
-In Swarm mode the generator content-hashes `config.yaml` because Docker Swarm
-configs are immutable.
+The generator content-hashes `config.yaml` because Docker Swarm configs are
+immutable.
 
 A changed `config.yaml` must result in a new Swarm config object while keeping
 the same `/app/config.yaml` target.
@@ -88,7 +92,6 @@ Do not put secrets in Docker configs.
 For files larger than 500 KiB, require an external/shared Swarm volume rather
 than silently falling back to a node-local bind mount.
 
-
 Require the CROWler images to provide the stable parent directories:
 
 ```text
@@ -111,7 +114,7 @@ set +a
 ## Generate
 
 ```bash
-./docker-compose/generate-docker-compose.sh \
+./docker-swarm/generate-docker-compose.sh \
   -e=2 \
   -v=2 \
   --prom=yes \
@@ -122,6 +125,7 @@ set +a
 ## Validate
 
 ```bash
+bash ./scripts/validate-deployment-support.sh swarm
 docker stack config -c docker-compose.yml
 ```
 
