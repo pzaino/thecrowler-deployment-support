@@ -17,6 +17,22 @@ https://github.com/pzaino/thecrowler
 | Helm | **Available** | [Helm](helm/README.md) |
 | HashiCorp Nomad | **Available** | [HashiCorp Nomad](nomad/README.md) |
 | Terraform | **Available** | [Terraform](terraform/README.md) |
+| GitHub Actions CI/CD | **Available** | [GitHub Actions](docs/github-actions.md) |
+
+## GitHub Actions CI/CD
+
+The repository includes CI validation for deployment definitions and controlled
+CD workflows for Helm/Kubernetes and HashiCorp Nomad.
+
+Production deployments can be protected with GitHub Environments and required
+reviewers. Continuous deployment after successful validation on `main` is
+available as an explicit opt-in and is disabled by default.
+
+Terraform is validated in CI, but Terraform `apply` is intentionally not run
+from ephemeral GitHub runners until an operator configures persistent, locked
+remote state.
+
+See [GitHub Actions deployment automation](docs/github-actions.md).
 
 ## Repository Root Is the Deployment Root
 
