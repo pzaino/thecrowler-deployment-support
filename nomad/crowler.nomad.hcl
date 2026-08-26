@@ -261,7 +261,7 @@ job "crowler" {
     healthy_deadline  = "5m"
     progress_deadline = "10m"
     auto_revert       = true
-    auto_promote      = true
+    auto_promote      = false
   }
 
   # ---------------------------------------------------------------------------
@@ -713,31 +713,31 @@ job "crowler" {
       }
 
       template {
-        data        = ""
+        data        = "# directory anchor\n"
         destination = "local/user/agents/.nomad-keep"
         once        = true
       }
 
       template {
-        data        = ""
+        data        = "# directory anchor\n"
         destination = "local/user/plugins/.nomad-keep"
         once        = true
       }
 
       template {
-        data        = ""
+        data        = "# directory anchor\n"
         destination = "local/user/rules/.nomad-keep"
         once        = true
       }
 
       template {
-        data        = ""
+        data        = "# directory anchor\n"
         destination = "local/user/support/.nomad-keep"
         once        = true
       }
 
       template {
-        data        = ""
+        data        = "# directory anchor\n"
         destination = "local/data/.nomad-keep"
         once        = true
       }
@@ -935,31 +935,31 @@ job "crowler" {
       }
 
       template {
-        data        = ""
+        data        = "# directory anchor\n"
         destination = "local/user/agents/.nomad-keep"
         once        = true
       }
 
       template {
-        data        = ""
+        data        = "# directory anchor\n"
         destination = "local/user/plugins/.nomad-keep"
         once        = true
       }
 
       template {
-        data        = ""
+        data        = "# directory anchor\n"
         destination = "local/user/rules/.nomad-keep"
         once        = true
       }
 
       template {
-        data        = ""
+        data        = "# directory anchor\n"
         destination = "local/user/support/.nomad-keep"
         once        = true
       }
 
       template {
-        data        = ""
+        data        = "# directory anchor\n"
         destination = "local/data/.nomad-keep"
         once        = true
       }
@@ -1139,31 +1139,31 @@ job "crowler" {
       }
 
       template {
-        data        = ""
+        data        = "# directory anchor\n"
         destination = "local/user/agents/.nomad-keep"
         once        = true
       }
 
       template {
-        data        = ""
+        data        = "# directory anchor\n"
         destination = "local/user/plugins/.nomad-keep"
         once        = true
       }
 
       template {
-        data        = ""
+        data        = "# directory anchor\n"
         destination = "local/user/rules/.nomad-keep"
         once        = true
       }
 
       template {
-        data        = ""
+        data        = "# directory anchor\n"
         destination = "local/user/support/.nomad-keep"
         once        = true
       }
 
       template {
-        data        = ""
+        data        = "# directory anchor\n"
         destination = "local/data/.nomad-keep"
         once        = true
       }
