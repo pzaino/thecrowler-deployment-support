@@ -112,8 +112,9 @@ check_nomad_format() {
     fi
 
     local format_dir
+    local format_file
     format_dir="$(mktemp -d)"
-    local format_file="$format_dir/$(basename "$file")"
+    format_file="$format_dir/$(basename "$file")"
     cp "$file" "$format_file"
     nomad fmt "$format_file" >/dev/null
 
