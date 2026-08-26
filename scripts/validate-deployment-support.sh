@@ -95,12 +95,15 @@ validate_structure() {
         common/config/config.default \
         common/config/config.default.remote \
         docker-compose/generate-docker-compose.sh \
+        docker-compose/generate-docker-compose.impl.sh \
         docker-swarm/generate-docker-compose.sh \
         docker-swarm/README.md \
         kubernetes/base \
         helm/thecrowler/Chart.yaml \
         nomad/crowler.nomad.hcl \
         terraform/run.sh \
+        terraform/helm/.terraform.lock.hcl \
+        terraform/nomad/.terraform.lock.hcl \
         .github/workflows/ci.yml \
         .github/workflows/deploy.yml \
         .github/workflows/continuous-deploy.yml \
@@ -135,12 +138,23 @@ validate_versions() {
         "Terraform Helm CROWler default must be ${expected_crowler}"
     require_match "^[[:space:]]*default[[:space:]]*=[[:space:]]*\"${expected_vdi}\"$" terraform/helm/variables.tf \
         "Terraform Helm VDI default must be ${expected_vdi}"
+    require_match "^[[:space:]]*default[[:space:]]*=[[:space:]]*\"${expected_crowler}\"$" terraform/nomad/variables.tf \
+        "Terraform Nomad CROWler default must be ${expected_crowler}"
     require_match "^[[:space:]]*default[[:space:]]*=[[:space:]]*\"${expected_vdi}\"$" terraform/nomad/variables.tf \
         "Terraform Nomad VDI default must be ${expected_vdi}"
     require_match "^[[:space:]]*default[[:space:]]*=[[:space:]]*\"${expected_crowler}\"$" nomad/crowler.nomad.hcl \
         "Nomad jobspec CROWler default must be ${expected_crowler}"
     require_match "^[[:space:]]*default[[:space:]]*=[[:space:]]*\"${expected_vdi}\"$" nomad/crowler.nomad.hcl \
         "Nomad jobspec VDI default must be ${expected_vdi}"
+    require_match "CROWLER_VERSION:-${expected_crowler}" .github/workflows/deploy.yml \
+        "Helm CD fallback CROWler version must be ${expected_crowler}"
+    require_match "CROWLER_VDI_VERSION:-${expected_vdi}" .github/workflows/deploy.yml \
+        "Helm CD fallback VDI version must be ${expected_vdi}"
+
+    if grep -q 'CROWLER_VERSION:-latest' .github/workflows/deploy.yml; then
+        echo "ERROR: Helm CD must not silently fall back to the moving CROWler latest tag." >&2
+        return 1
+    fi
 
     if grep -Rqs 'zfpsystems/crowler-.*:2\.0\.3' kubernetes/base; then
         echo "ERROR: raw Kubernetes manifests still reference CROWler 2.0.3." >&2
@@ -220,6 +234,13 @@ validate_static() {
 validate_compose() {
     require_command docker
     ensure_runtime_inputs
+
+    if ./docker-compose/generate-docker-compose.sh \
+        -e=1 -v=1 --prom=no --pg=yes --no_jaeger --swarm=yes >/dev/null 2>&1; then
+        echo "ERROR: the public Docker Compose generator still accepts --swarm=yes." >&2
+        return 1
+    fi
+
     ./docker-compose/generate-docker-compose.sh -e=1 -v=1 --prom=no --pg=yes --no_jaeger
     docker compose --env-file .env -f docker-compose.yml config >/dev/null
     echo "Docker Compose generation and validation passed."
@@ -287,7 +308,7 @@ validate_terraform() {
     local backend
     for backend in helm nomad; do
         terraform fmt -check -diff -recursive "terraform/$backend"
-        terraform -chdir="terraform/$backend" init -backend=false -input=false >/dev/null
+        terraform -chdir="terraform/$backend" init -backend=false -input=false -lockfile=readonly >/dev/null
         ./terraform/run.sh "$backend" validate
     done
 
