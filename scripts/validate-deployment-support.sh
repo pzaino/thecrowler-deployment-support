@@ -110,8 +110,8 @@ validate_versions() {
     local expected_crowler="2.1.0"
     local expected_vdi="4.28.1-20260819"
 
-    grep -q '^CROWLER_VERSION=latest$' common/env/env_template || {
-        echo "ERROR: common/env/env_template should default CROWLER_VERSION to latest." >&2
+    grep -q "^CROWLER_VERSION=${expected_crowler}$" common/env/env_template || {
+        echo "ERROR: common/env/env_template CROWler version must be ${expected_crowler}." >&2
         return 1
     }
     grep -q "^CROWLER_VDI_VERSION=${expected_vdi}$" common/env/env_template || {
@@ -130,6 +130,11 @@ validate_versions() {
         return 1
     fi
     grep -q "zfpsystems/crowler-vdi:${expected_vdi}" kubernetes/base/vdi/deployment.yaml || return 1
+
+    if grep -Rqs '4\.28\.1-20260807' docker-compose docker-swarm nomad terraform kubernetes helm .github; then
+        echo "ERROR: stale VDI fallback 4.28.1-20260807 remains in deployment definitions." >&2
+        return 1
+    fi
 
     echo "Deployment version defaults are consistent."
 }
@@ -170,7 +175,7 @@ validate_skills() {
         return 1
     }
 
-    if grep -Eq '\|[[:space:]]*`(deploy|validate)-[^`]+`[^|]*\|[^|]*\|[[:space:]]*Planned[[:space:]]*\|' .agents/skills/README.md; then
+    if grep -E '[|][[:space:]]*Planned[[:space:]]*[|]' .agents/skills/README.md | grep -Eq '(deploy|validate)-'; then
         echo "ERROR: the AI skill index still contains planned deployment/validation skills." >&2
         return 1
     fi
@@ -222,7 +227,10 @@ validate_swarm() {
 
 validate_kubernetes() {
     require_command kubeconform
-    kubeconform -strict -summary -kubernetes-version 1.32.0 kubernetes/base/
+    local version
+    for version in 1.27.0 1.32.0; do
+        kubeconform -strict -summary -kubernetes-version "$version" kubernetes/base/
+    done
     echo "Raw Kubernetes schema validation passed."
 }
 
@@ -230,8 +238,11 @@ validate_helm() {
     require_command helm
     require_command kubeconform
     helm lint helm/thecrowler
-    helm template crowler helm/thecrowler --namespace crowler | \
-        kubeconform -strict -summary -kubernetes-version 1.32.0
+    local version
+    for version in 1.27.0 1.32.0; do
+        helm template crowler helm/thecrowler --namespace crowler | \
+            kubeconform -strict -summary -kubernetes-version "$version"
+    done
     echo "Helm validation passed."
 }
 
