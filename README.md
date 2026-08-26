@@ -52,6 +52,54 @@ The backend READMEs are the detailed reference guides. These tutorials explain h
 * [Planning a production deployment](docs/production-deployment.md) - storage, external services, private control planes, plans, approvals, CI/CD, and cloud deployment boundaries.
 * [GitHub Actions CI/CD](docs/github-actions.md) - validation, protected environments, manual deployment, and optional continuous deployment.
 
+## AI-assisted deployment
+
+The repository contains task-specific AI agent skills under `.agents/skills/` for every supported deployment path:
+
+```text
+deploy-docker-compose
+deploy-docker-swarm
+deploy-kubernetes
+deploy-helm
+deploy-nomad
+deploy-terraform
+deploy-github-actions
+validate-deployment
+```
+
+The root [AGENTS.md](AGENTS.md) defines repository-wide deployment and safety invariants, while each skill contains backend-specific instructions.
+
+An AI agent using these instructions can help choose a deployment method, prepare and validate the deployment, operate the selected backend, or configure the GitHub Actions CI/CD path. The same infrastructure boundary applies to humans and agents: this repository deploys CROWler onto existing compute, Kubernetes, or Nomad infrastructure; it does not currently create EKS, AKS, GKE, VPCs, or equivalent cloud foundations.
+
+See [.agents/skills/README.md](.agents/skills/README.md) for the complete skill index.
+
+## Validate everything
+
+Humans, CI, and AI agents share the same non-destructive validation entry point:
+
+```bash
+bash ./scripts/validate-deployment-support.sh all
+```
+
+Individual targets are available for:
+
+```text
+static
+compose
+swarm
+kubernetes
+helm
+nomad
+terraform
+skills
+```
+
+The required GitHub Actions CI runs the same checks across all advertised deployment backends.
+
+For published-image verification, the on-demand **Smoke published CROWler deployment** workflow pulls and creates a minimal Compose deployment on native AMD64 and ARM64 GitHub runners and verifies that the official images resolve to the expected architecture.
+
+Structural validation and smoke testing do not replace a backend-specific deployment plan and live health checks against the final target.
+
 ## Repository Root Is the Deployment Root
 
 Run deployment commands from the repository root.

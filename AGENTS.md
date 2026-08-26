@@ -45,6 +45,11 @@ Do not introduce local image builds unless explicitly requested.
 * Helm: `helm/README.md`
 * HashiCorp Nomad: `nomad/README.md`
 * Terraform: `terraform/README.md`
+* GitHub Actions CI/CD: `docs/github-actions.md`
+
+When the user has not selected a backend, consult `docs/choosing-a-deployment.md` before choosing one on their behalf.
+
+GitHub Actions is an automation layer over Helm/Kubernetes and Nomad. It is not a separate workload topology and does not provision the underlying cloud or cluster infrastructure.
 
 ## Runtime Configuration
 
@@ -60,6 +65,8 @@ Create root `config.yaml` from exactly one of:
 * `common/config/config.default.remote`
 
 Do not silently choose between them.
+
+See `docs/configuration.md` for the difference between local and remote bootstrap configuration.
 
 ## User Deployment Content
 
@@ -82,8 +89,7 @@ Canonical runtime layout:
 /app/user/support
 ```
 
-Never mount over built-in `/app/agents`, `/app/plugins`, `/app/rules`, or
-`/app/support`.
+Never mount over built-in `/app/agents`, `/app/plugins`, `/app/rules`, or `/app/support`.
 
 ### Docker Compose
 
@@ -91,15 +97,13 @@ Use read-only repository-root bind mounts.
 
 ### Docker Swarm
 
-Do not use node-local `./user/...` bind mounts. Use versioned Swarm configs for
-small direct user files.
+Do not use node-local `./user/...` bind mounts. Use versioned Swarm configs for small direct user files.
 
 ### HashiCorp Nomad
 
 Do not require `user/` directories on every Nomad client.
 
-The Nomad CLI must be run from the repository root so HCL `file()` and
-`fileset()` can consume root `config.yaml` and `user/*` locally.
+The Nomad CLI must be run from the repository root so HCL `file()` and `fileset()` can consume root `config.yaml` and `user/*` locally.
 
 Use native Nomad service discovery by default.
 
@@ -109,8 +113,7 @@ Use Nomad Variables at:
 nomad/jobs/crowler/env
 ```
 
-Bundled PostgreSQL uses a dynamic host volume. Do not describe local dynamic
-host volumes as highly available storage.
+Bundled PostgreSQL uses a dynamic host volume. Do not describe local dynamic host volumes as highly available storage.
 
 ### Terraform
 
@@ -142,62 +145,63 @@ Do not duplicate CROWler workload topology as parallel Terraform resources.
 
 Protect persistent database volumes from automatic Terraform destruction.
 
+### GitHub Actions
+
+GitHub Actions deployment must reuse the existing Helm/Kubernetes or Nomad paths.
+
+Use protected GitHub Environments for production credentials and approvals.
+
+For private control planes, prefer a secured self-hosted runner with network access rather than exposing a private Kubernetes or Nomad API publicly.
+
+Do not enable continuous deployment without explicit intent.
+
+Do not run state-changing Terraform from ephemeral CI runners unless persistent, encrypted, locked remote state has been explicitly configured.
+
 ## Credentials
 
 Never invent credentials.
 
-Never commit `.env`, production Secrets, private Helm values, Terraform
-tfvars/state, or credentials.
+Never commit `.env`, production Secrets, private Helm values, Terraform tfvars/state, kubeconfig, Nomad tokens, or other credentials.
 
 Do not put credentials inside `user/`.
 
 ## Validation
 
-Docker Compose:
+The canonical repository validation entry point is:
 
 ```bash
-docker compose config
+bash ./scripts/validate-deployment-support.sh <target>
 ```
 
-Docker Swarm:
+Targets are:
+
+```text
+static
+compose
+swarm
+kubernetes
+helm
+nomad
+terraform
+skills
+all
+```
+
+Prefer:
 
 ```bash
-set -a
-. ./.env
-set +a
-docker stack config -c docker-compose.yml
+bash ./scripts/validate-deployment-support.sh all
 ```
 
-Kubernetes:
+before declaring a deployment-support change valid.
 
-```bash
-kubectl apply --dry-run=client -R -f kubernetes/base/
-```
+The GitHub Actions CI workflow should use the same validation targets rather than maintain separate validation semantics.
 
-Helm:
+Validation must remain non-destructive. It must not apply Kubernetes resources, submit Nomad jobs, initialize or mutate a Swarm, run Terraform apply, or delete persistent data.
 
-```bash
-helm lint helm/thecrowler
-helm template crowler helm/thecrowler --namespace crowler
-```
+Validation does not prove runtime health or target reachability.
 
-Nomad:
-
-```bash
-./nomad/deploy.sh validate
-./nomad/deploy.sh plan
-```
-
-Terraform:
-
-```bash
-./terraform/run.sh nomad validate
-./terraform/run.sh nomad plan
-./terraform/run.sh helm validate
-./terraform/run.sh helm plan
-```
-
-Validation does not prove runtime health.
+Use the dedicated `Smoke published CROWler deployment` workflow when image-level deployment smoke coverage is requested, and backend-specific plan/apply plus health checks for a live environment.
 
 ## Agent Skills
 
@@ -206,3 +210,5 @@ Task-specific instructions are under:
 ```text
 .agents/skills/
 ```
+
+Use `validate-deployment` for cross-backend validation and `deploy-github-actions` for CI/CD deployment automation.
