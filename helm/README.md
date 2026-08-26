@@ -77,6 +77,8 @@ Create the Secret:
 kubectl create secret generic crowler-secrets   -n crowler   --from-literal=DOCKER_POSTGRES_PASSWORD="$DOCKER_POSTGRES_PASSWORD"   --from-literal=DOCKER_CROWLER_DB_USER="$DOCKER_CROWLER_DB_USER"   --from-literal=DOCKER_CROWLER_DB_PASSWORD="$DOCKER_CROWLER_DB_PASSWORD"   --from-literal=SEL_PASSWD="$SEL_PASSWD"   --dry-run=client   -o yaml | kubectl apply -f -
 ```
 
+Add any additional `.env` values required by plugins, rules, proxies, mail connectors, telemetry, or other integrations to the externally managed Secret as well.
+
 Install:
 
 ```bash
@@ -165,14 +167,14 @@ Existing Secrets are preferred for production.
 The chart defaults to:
 
 ```text
-CROWler: 2.0.3
-VDI:     4.28.1-20260807
+CROWler: 2.1.0
+VDI:     4.28.1-20260819
 ```
 
 Override them with:
 
 ```bash
-helm upgrade --install crowler ./helm/thecrowler   -n crowler   --set global.crowlerVersion=2.0.3   --set global.vdiVersion=4.28.1-20260807
+helm upgrade --install crowler ./helm/thecrowler   -n crowler   --set global.crowlerVersion=2.1.0   --set global.vdiVersion=4.28.1-20260819
 ```
 
 ## Scaling
@@ -193,10 +195,20 @@ The configured Secret must contain the CROWler DB credentials.
 
 ## Validate
 
+Run the shared repository validation when all validation dependencies are available:
+
+```bash
+bash ./scripts/validate-deployment-support.sh helm
+```
+
+The underlying chart checks are:
+
 ```bash
 helm lint helm/thecrowler
 helm template crowler helm/thecrowler --namespace crowler
 ```
+
+CI additionally validates rendered resources against strict Kubernetes schemas with `kubeconform`.
 
 Chart-managed config validation:
 
