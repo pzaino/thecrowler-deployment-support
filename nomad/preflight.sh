@@ -44,11 +44,11 @@ fi
 # SELENIUM_HOST environment variable, so local/remote effective configuration
 # must consume that variable.
 if grep -Eq '^[[:space:]]*vdi:[[:space:]]*$' config.yaml; then
-    if ! grep -Fq '${SELENIUM_HOST}' config.yaml; then
+    if ! grep -Fq "\${SELENIUM_HOST}" config.yaml; then
         echo "ERROR: config.yaml contains a local VDI section but does not reference \${SELENIUM_HOST}." >&2
         echo >&2
         echo "For Nomad local VDI discovery, set the VDI host to:" >&2
-        echo '    host: ${SELENIUM_HOST}' >&2
+        echo "    host: \${SELENIUM_HOST}" >&2
         echo >&2
         echo "See: nomad/config-runtime-contract.md" >&2
         exit 1
