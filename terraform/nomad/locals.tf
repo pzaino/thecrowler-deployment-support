@@ -3,9 +3,9 @@ locals {
   jobspec_path     = "${local.repository_root}/nomad/crowler.nomad.hcl"
   config_path      = "${local.repository_root}/config.yaml"
 
-  user_agents = sort(tolist(fileset("${local.repository_root}/user/agents", "*.{yaml,yml,json}")))
+  user_agents  = sort(tolist(fileset("${local.repository_root}/user/agents", "*.{yaml,yml,json}")))
   user_plugins = sort(tolist(fileset("${local.repository_root}/user/plugins", "*.js")))
-  user_rules = sort(tolist(fileset("${local.repository_root}/user/rules", "*.{yaml,yml,json}")))
+  user_rules   = sort(tolist(fileset("${local.repository_root}/user/rules", "*.{yaml,yml,json}")))
   user_support = sort([
     for filename in fileset("${local.repository_root}/user/support", "*") : filename
     if !startswith(filename, ".")
