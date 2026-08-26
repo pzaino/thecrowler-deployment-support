@@ -12,11 +12,12 @@ metadata:
 
 ## Sources of Truth
 
-Inspect before making deployment decisions:
+Inspect:
 
 * `.github/workflows/ci.yml`
 * `.github/workflows/deploy.yml`
 * `.github/workflows/continuous-deploy.yml`
+* `.github/workflows/smoke.yml`
 * `docs/github-actions.md`
 * `docs/production-deployment.md`
 * `helm/README.md`
@@ -26,8 +27,6 @@ Inspect before making deployment decisions:
 The GitHub Actions layer orchestrates existing Helm/Kubernetes or Nomad deployment definitions. It must not introduce a second CROWler workload topology.
 
 ## Deployment Boundary
-
-The workflows deploy The CROWler onto an existing target.
 
 Supported CD targets are:
 
@@ -40,15 +39,9 @@ Do not claim that these workflows create EKS, AKS, GKE, VPCs, subnets, Nomad clu
 
 ## Required GitHub Environment
 
-Use a GitHub Environment such as:
+Use a GitHub Environment such as `production`. For production, prefer required reviewers so deployment credentials are released only after approval.
 
-```text
-production
-```
-
-For production, prefer required reviewers so deployment credentials are not released to the job until approval is granted.
-
-Required Environment secrets for all deployment targets:
+Required Environment secrets for all targets:
 
 ```text
 CROWLER_CONFIG
@@ -66,124 +59,60 @@ DOCKER_CROWLER_DB_PASSWORD
 SEL_PASSWD
 ```
 
-Do not commit these production values to the repository.
+Do not commit these production values.
 
 ## Helm / Kubernetes
 
-Additionally require:
-
-```text
-KUBECONFIG
-```
-
-The selected GitHub runner must be able to reach the Kubernetes API.
-
-For a private cluster, use a self-hosted runner on a trusted network path rather than exposing the Kubernetes API merely to make CI/CD work.
+Additionally require `KUBECONFIG`. The selected runner must be able to reach the Kubernetes API. For a private cluster, use a self-hosted runner on a trusted network path rather than exposing the API merely to make CI/CD work.
 
 ## Nomad
 
-Additionally require:
-
-```text
-NOMAD_ADDR
-```
-
-Optional depending on the cluster:
-
-```text
-NOMAD_TOKEN
-NOMAD_NAMESPACE
-```
-
-The selected runner must be able to reach the Nomad API.
+Additionally require `NOMAD_ADDR`. Depending on the cluster, also use `NOMAD_TOKEN` and `NOMAD_NAMESPACE`. The selected runner must be able to reach the Nomad API.
 
 ## Validate Before Deployment
 
-Repository changes should first pass:
+Repository changes should first pass `Validate deployment support`.
 
-```text
-Validate deployment support
-```
-
-For local equivalent checks, use:
+For the local equivalent:
 
 ```bash
-./scripts/validate-deployment-support.sh all
+bash ./scripts/validate-deployment-support.sh all
 ```
 
-Do not treat successful static validation as proof that a remote cluster is reachable or healthy.
+Do not treat successful structural validation as proof that a remote cluster is reachable or healthy.
 
-## Plan
+## Plan and Apply
 
 For a new environment, dispatch `Deploy The CROWler` with:
 
 ```text
 operation = plan
-backend   = helm | nomad
+backend = helm | nomad
 environment = <GitHub Environment>
 ```
 
-Review the result before the first apply.
-
-For Helm, planning uses a server-side Helm dry run against the selected cluster.
-
-For Nomad, planning delegates to the repository's Nomad deployment workflow.
-
-## Apply
-
-After validation and an acceptable plan, dispatch:
-
-```text
-operation = apply
-```
-
-Do not bypass GitHub Environment approval controls for sensitive environments.
+Review the plan, then dispatch `operation = apply` when appropriate. Do not bypass GitHub Environment approval controls for sensitive environments.
 
 ## Version Overrides
 
-The workflow normally reads:
-
-```text
-CROWLER_VERSION
-CROWLER_VDI_VERSION
-```
-
-from `CROWLER_ENV`.
-
-Workflow-dispatch inputs may override them for one deployment.
-
-Do not silently change image versions when the user did not request an upgrade.
+The workflow normally reads `CROWLER_VERSION` and `CROWLER_VDI_VERSION` from `CROWLER_ENV`. Workflow-dispatch inputs may override them for one deployment. Do not silently change image versions when the user did not request an upgrade.
 
 ## Continuous Deployment
 
-Continuous deployment is intentionally disabled by default.
+Continuous deployment is disabled by default. Enable it only when `CROWLER_AUTO_DEPLOY=true` is explicitly configured with the required backend, environment, and runner variables documented in `docs/github-actions.md`.
 
-Enable it only when repository variable:
+A protected Environment may still require human approval even when continuous deployment is enabled. Do not enable continuous deployment before manual plan/apply has been tested successfully.
 
-```text
-CROWLER_AUTO_DEPLOY=true
-```
+## Native Image Smoke Testing
 
-is explicitly configured together with the required backend, environment, and runner variables documented in `docs/github-actions.md`.
+Use `Smoke published CROWler deployment` when the user wants to verify published images before deployment. It pulls and creates a minimal Compose deployment on native AMD64 and ARM64 GitHub runners and verifies that each official image resolves to the expected architecture.
 
-A protected GitHub Environment may still require human approval even when continuous deployment is enabled.
-
-Do not enable continuous deployment before manual plan/apply has been tested successfully for the target environment.
+The smoke workflow does not start a production environment and cleans its ephemeral Compose resources afterward.
 
 ## Terraform Boundary
 
-Terraform is validated by CI, but the provided GitHub deployment workflow does not automatically run Terraform apply.
-
-Do not add state-changing Terraform automation on ephemeral runners unless the deployment has a persistent, encrypted, locked remote state backend and the user explicitly wants Terraform-based CD.
+Terraform is validated by CI, but the provided deployment workflow does not automatically run Terraform apply. Do not add state-changing Terraform automation on ephemeral runners unless persistent, encrypted, locked remote state is configured and the user explicitly wants Terraform-based CD.
 
 ## Safety
 
-Never:
-
-* invent deployment credentials or GitHub secrets
-* print secret contents into logs
-* commit generated `.env`, `config.yaml`, kubeconfig, tokens, or private values
-* weaken Environment approvals merely to make deployment pass
-* expose a private control plane publicly as a shortcut
-* claim cloud infrastructure provisioning that this repository does not implement
-* enable continuous deployment without explicit intent
+Never invent credentials, print secret contents into logs, commit generated credentials/configuration, weaken Environment approvals merely to make deployment pass, expose private control planes as a shortcut, claim cloud provisioning that is not implemented, or enable continuous deployment without explicit intent.
