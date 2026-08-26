@@ -1,7 +1,7 @@
 locals {
   repository_root = abspath("${path.root}/../..")
-  chart_path       = "${local.repository_root}/helm/thecrowler"
-  config_path      = "${local.repository_root}/config.yaml"
+  chart_path      = "${local.repository_root}/helm/thecrowler"
+  config_path     = "${local.repository_root}/config.yaml"
 
   config_map_name = "${var.release_name}-config"
   secret_name     = "${var.release_name}-secrets"
