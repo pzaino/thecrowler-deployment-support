@@ -1,9 +1,10 @@
 # CROWler version to "docker pull"
-#CROWLER_VERSION=2.0.3
+# Pin this to a specific release when reproducibility is required.
 CROWLER_VERSION=latest
+#CROWLER_VERSION=2.1.0
 
 # CROWler VDI version to "docker pull"
-CROWLER_VDI_VERSION=4.28.1-20260807
+CROWLER_VDI_VERSION=4.28.1-20260819
 #CROWLER_VDI_VERSION=latest
 
 # The name of the CROWler-DB container/service
