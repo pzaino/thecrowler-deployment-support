@@ -40,6 +40,18 @@ See [GitHub Actions deployment automation](docs/github-actions.md).
 
 Start with Docker Compose. You can move to an orchestrator later without changing the CROWler itself.
 
+For a guided first deployment, including laptops, servers, and ARM64 systems such as Raspberry Pis, see [Getting started](docs/getting-started.md).
+
+## Deployment Tutorials
+
+The backend READMEs are the detailed reference guides. These tutorials explain how the pieces fit together and help you choose an operational path:
+
+* [Getting started](docs/getting-started.md) - from a fresh clone to a first running CROWler deployment.
+* [Choosing a deployment method](docs/choosing-a-deployment.md) - Compose, Swarm, Nomad, Kubernetes, Helm, Terraform, and CI/CD compared by use case.
+* [Configuration models](docs/configuration.md) - `.env`, local `config.yaml`, remote bootstrap configuration, secrets, and user content.
+* [Planning a production deployment](docs/production-deployment.md) - storage, external services, private control planes, plans, approvals, CI/CD, and cloud deployment boundaries.
+* [GitHub Actions CI/CD](docs/github-actions.md) - validation, protected environments, manual deployment, and optional continuous deployment.
+
 ## Repository Root Is the Deployment Root
 
 Run deployment commands from the repository root.
@@ -82,6 +94,8 @@ or:
 ```bash
 cp common/config/config.default.remote config.yaml
 ```
+
+For the difference between these two models, see [Configuration models](docs/configuration.md).
 
 ## User Content
 
