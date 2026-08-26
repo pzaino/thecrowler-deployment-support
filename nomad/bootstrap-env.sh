@@ -32,7 +32,6 @@ if [ ! -f ".env" ]; then
     exit 1
 fi
 
-# Load the same root environment used by the other deployment backends.
 set -a
 # shellcheck disable=SC1091
 . "./.env"
@@ -41,9 +40,6 @@ set +a
 namespace="${NOMAD_NAMESPACE:-default}"
 variable_path="nomad/jobs/crowler/env"
 
-# Nomad manages these values dynamically or passes them as HCL input
-# variables. Do not import stale root .env values that could override service
-# discovery.
 declare -A excluded=(
     [CROWLER_VERSION]=1
     [CROWLER_VDI_VERSION]=1
@@ -64,19 +60,14 @@ mapfile -t env_keys < <(
 )
 
 items='{}'
-
 for key in "${env_keys[@]}"; do
     if [[ -n "${excluded[$key]:-}" ]]; then
         continue
     fi
-
     value="${!key-}"
-    items="$(jq --arg key "$key" --arg value "$value" \
-        '. + {($key): $value}' <<<"$items")"
+    items="$(jq --arg key "$key" --arg value "$value" '. + {($key): $value}' <<<"$items")"
 done
 
-# Nomad Variables have a 64 KiB aggregate key/value limit. Keep a conservative
-# margin for JSON/spec metadata and future small additions.
 items_bytes="$(printf '%s' "$items" | wc -c | tr -d '[:space:]')"
 if [ "$items_bytes" -gt 60000 ]; then
     echo "ERROR: root .env content selected for Nomad is too large ($items_bytes bytes)." >&2
@@ -96,7 +87,7 @@ if [ "$mode" = "--check" ]; then
         echo "Nomad environment Variable is already in sync:"
         echo "  namespace: $namespace"
         echo "  path:      $variable_path"
-        return 0 2>/dev/null || exit 0
+        exit 0
     fi
 
     echo "Nomad environment Variable would change (read-only check):"
@@ -119,8 +110,7 @@ payload="$(jq -n \
     --argjson items "$items" \
     '{Namespace:$namespace, Path:$path, Items:$items}')"
 
-printf '%s\n' "$payload" |
-    nomad var put -force -in=json -
+printf '%s\n' "$payload" | nomad var put -force -in=json -
 
 echo "Nomad environment Variable synchronized:"
 echo "  namespace: $namespace"
