@@ -11,7 +11,7 @@ fi
 
 usage() {
     cat <<'EOF'
-Usage: ./scripts/validate-deployment-support.sh <target>
+Usage: bash ./scripts/validate-deployment-support.sh <target>
 
 Targets:
   static       Shell scripts, repository structure, and AI skill structure
@@ -91,6 +91,8 @@ validate_structure() {
         terraform/run.sh \
         .github/workflows/ci.yml \
         .github/workflows/deploy.yml \
+        .github/workflows/continuous-deploy.yml \
+        .github/workflows/smoke.yml \
         .agents/skills/README.md \
         user/agents \
         user/plugins \
