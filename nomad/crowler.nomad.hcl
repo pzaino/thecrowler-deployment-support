@@ -199,49 +199,49 @@ CROWLER_DB_PASSWORD={{ .DOCKER_CROWLER_DB_PASSWORD.Value | toJSON }}
 EOT
 
   database_host_template = <<-EOT
-%{ if var.database_enabled ~}
+%{if var.database_enabled~}
 {{$allocID := env "NOMAD_ALLOC_ID" -}}
 {{ range nomadService 1 $allocID "crowler-db" -}}
 DOCKER_DB_HOST={{ .Address | toJSON }}
 {{ end -}}
-%{ else ~}
+%{else~}
 DOCKER_DB_HOST=${jsonencode(var.external_db_host)}
-%{ endif ~}
+%{endif~}
 EOT
 
   selenium_host_template = <<-EOT
-%{ if var.vdi_count > 0 ~}
+%{if var.vdi_count > 0~}
 {{$allocID := env "NOMAD_ALLOC_ID" -}}
 {{ range nomadService 1 $allocID "crowler-vdi" -}}
 SELENIUM_HOST={{ .Address | toJSON }}
 {{ end -}}
-%{ else ~}
+%{else~}
 SELENIUM_HOST=${jsonencode(var.external_selenium_host)}
-%{ endif ~}
+%{endif~}
 EOT
 
   prometheus_host_template = <<-EOT
-%{ if var.pushgateway_enabled ~}
+%{if var.pushgateway_enabled~}
 {{$allocID := env "NOMAD_ALLOC_ID" -}}
 {{ range nomadService 1 $allocID "crowler-push-gateway" -}}
 PROMETHEUS_HOST={{ .Address | toJSON }}
 {{ end -}}
-%{ else ~}
+%{else~}
 PROMETHEUS_HOST=${jsonencode(var.external_prometheus_host)}
-%{ endif ~}
+%{endif~}
 EOT
 
   jaeger_env_template = <<-EOT
-%{ if var.jaeger_enabled ~}
+%{if var.jaeger_enabled~}
 SE_ENABLE_TRACING="true"
 {{$allocID := env "NOMAD_ALLOC_ID" -}}
 {{ range nomadService 1 $allocID "crowler-jaeger-otlp" -}}
 SE_OTEL_EXPORTER_ENDPOINT={{ printf "http://%s:%d" .Address .Port | toJSON }}
 {{ end -}}
-%{ else ~}
+%{else~}
 SE_ENABLE_TRACING="false"
 SE_OTEL_EXPORTER_ENDPOINT=""
-%{ endif ~}
+%{endif~}
 EOT
 }
 
