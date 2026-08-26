@@ -15,7 +15,7 @@ metadata:
 Use the repository validator:
 
 ```bash
-./scripts/validate-deployment-support.sh <target>
+bash ./scripts/validate-deployment-support.sh <target>
 ```
 
 Do not duplicate its validation rules in ad-hoc agent commands unless investigating a failure.
@@ -39,54 +39,38 @@ all
 Before declaring a repository change deployment-safe, prefer:
 
 ```bash
-./scripts/validate-deployment-support.sh all
+bash ./scripts/validate-deployment-support.sh all
 ```
 
 This is a structural and offline validation pass. It is not a substitute for testing against a live destination.
 
 ## Static Validation
 
-`static` checks:
-
-* required repository paths;
-* all shell scripts through ShellCheck;
-* AI skill structure and metadata.
+`static` checks required repository paths, all shell scripts through ShellCheck, and AI skill structure and metadata.
 
 Use `skills` when only the AI deployment instructions need validation.
 
 ## Docker Compose
 
-`compose` generates a small single-host deployment and parses it with Docker Compose.
-
-It validates generated configuration rather than starting production workloads.
-
-Do not modify or delete an operator's persistent volumes as part of validation.
+`compose` generates a small single-host deployment and parses it with Docker Compose. It validates generated configuration rather than starting production workloads.
 
 ## Docker Swarm
 
-`swarm` generates Swarm-compatible output and validates it with `docker stack config`.
-
-It also checks that Swarm user content does not fall back to node-local `./user/...` bind mounts and that runtime configuration is versioned.
+`swarm` generates Swarm-compatible output and validates it with `docker stack config`. It also checks that Swarm user content does not fall back to node-local `./user/...` bind mounts and that runtime configuration is versioned.
 
 This does not create or mutate a Docker Swarm.
 
 ## Kubernetes
 
-`kubernetes` performs client-side validation of the raw manifest tree.
-
-It does not connect to or modify a Kubernetes cluster.
+`kubernetes` performs client-side validation of the raw manifest tree. It does not connect to or modify a Kubernetes cluster.
 
 ## Helm
 
-`helm` runs chart linting and rendering.
-
-It does not install a Helm release.
+`helm` runs chart linting and rendering. It does not install a Helm release.
 
 ## Nomad
 
-`nomad` uses the repository's own Nomad validation path, including preflight, formatting, and `nomad job validate`.
-
-It does not submit the job.
+`nomad` uses the repository's own Nomad validation path, including preflight, formatting, and `nomad job validate`. It does not submit the job.
 
 ## Terraform
 
@@ -97,9 +81,7 @@ terraform/helm
 terraform/nomad
 ```
 
-It checks formatting, initializes providers with the state backend disabled, and runs the repository Terraform validation wrapper.
-
-It must not run `terraform apply` during repository validation.
+It checks formatting, initializes providers with the state backend disabled, and runs the repository Terraform validation wrapper. It must not run `terraform apply` during repository validation.
 
 ## CI Relationship
 
@@ -111,18 +93,10 @@ When CI fails, inspect the failed target rather than bypassing or weakening the 
 
 Static validation cannot prove that published images start correctly or that a real cluster is reachable.
 
-Use the repository's dedicated smoke workflow when an image-level deployment smoke test is requested.
+Use the `Smoke published CROWler deployment` GitHub Actions workflow when image-level deployment smoke coverage is requested. It verifies native AMD64 and ARM64 image selection and Compose container creation without starting a production deployment.
 
 For production targets, use backend-specific plan/apply and health checks after structural validation succeeds.
 
 ## Safety
 
-Never:
-
-* turn validation into an implicit deployment;
-* delete persistent data during validation;
-* initialize or mutate a Docker Swarm merely to parse output;
-* apply Kubernetes resources during offline validation;
-* submit a Nomad job during validation;
-* run Terraform apply during repository validation;
-* suppress a failing validation without understanding why it fails.
+Never turn validation into an implicit deployment, delete persistent data, initialize or mutate a Swarm, apply Kubernetes resources, submit a Nomad job, run Terraform apply, or suppress a failing validation without understanding why it fails.
