@@ -65,13 +65,24 @@ Do not commit these production values.
 
 Additionally require `KUBECONFIG`. The selected runner must be able to reach the Kubernetes API. For a private cluster, use a self-hosted runner on a trusted network path rather than exposing the API merely to make CI/CD work.
 
+The workflow stores kubeconfig under the runner's temporary directory rather than replacing an operator's existing `~/.kube/config`.
+
+Helm deployment mirrors the repository runtime contract:
+
+* the complete deployment `.env` becomes the externally managed `crowler-secrets` Secret;
+* `config.yaml` becomes `crowler-config`;
+* `user/agents`, `user/plugins`, `user/rules`, and `user/support` become externally managed ConfigMaps and are enabled through the chart;
+* apply uses atomic/wait semantics and a ten-minute timeout.
+
 ## Nomad
 
 Additionally require `NOMAD_ADDR`. Depending on the cluster, also use `NOMAD_TOKEN` and `NOMAD_NAMESPACE`. The selected runner must be able to reach the Nomad API.
 
+The workflow verifies the HashiCorp-published SHA256 checksum before installing the Nomad CLI.
+
 ## Validate Before Deployment
 
-Repository changes should first pass `Validate deployment support`.
+Repository changes should first pass `Validate deployment support`. The workflow exposes a single `Validation gate` job intended to be required by branch protection on `main`.
 
 For the local equivalent:
 
@@ -91,6 +102,8 @@ backend = helm | nomad
 environment = <GitHub Environment>
 ```
 
+Plans may be run from development branches. `apply` is deliberately restricted to the `main` branch.
+
 Review the plan, then dispatch `operation = apply` when appropriate. Do not bypass GitHub Environment approval controls for sensitive environments.
 
 ## Version Overrides
@@ -103,16 +116,22 @@ Continuous deployment is disabled by default. Enable it only when `CROWLER_AUTO_
 
 A protected Environment may still require human approval even when continuous deployment is enabled. Do not enable continuous deployment before manual plan/apply has been tested successfully.
 
-## Native Image Smoke Testing
+## Native Runtime Smoke Testing
 
-Use `Smoke published CROWler deployment` when the user wants to verify published images before deployment. It pulls and creates a minimal Compose deployment on native AMD64 and ARM64 GitHub runners and verifies that each official image resolves to the expected architecture.
+Use `Smoke published CROWler deployment` when the user wants to verify published images before deployment. It runs on native AMD64 and ARM64 GitHub runners, verifies image architecture, starts a minimal Compose deployment, waits for core service health/running state, captures diagnostic logs, and removes all ephemeral smoke resources afterward.
 
-The smoke workflow does not start a production environment and cleans its ephemeral Compose resources afterward.
+The smoke workflow is not a production deployment and should remain on-demand because the VDI image is large and registry-dependent.
 
 ## Terraform Boundary
 
 Terraform is validated by CI, but the provided deployment workflow does not automatically run Terraform apply. Do not add state-changing Terraform automation on ephemeral runners unless persistent, encrypted, locked remote state is configured and the user explicitly wants Terraform-based CD.
 
+## Supply-Chain Rules
+
+GitHub Actions used by the repository are pinned to immutable commit SHAs. Preserve SHA pinning when updating actions and annotate the corresponding release/tag for readability.
+
+Downloaded deployment CLIs must be checksum-verified before installation.
+
 ## Safety
 
-Never invent credentials, print secret contents into logs, commit generated credentials/configuration, weaken Environment approvals merely to make deployment pass, expose private control planes as a shortcut, claim cloud provisioning that is not implemented, or enable continuous deployment without explicit intent.
+Never invent credentials, print secret contents into logs, commit generated credentials/configuration, weaken Environment or branch protections merely to make deployment pass, expose private control planes as a shortcut, claim cloud provisioning that is not implemented, or enable continuous deployment without explicit intent.
