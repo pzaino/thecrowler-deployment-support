@@ -39,6 +39,8 @@ database:
   max_conns: 50
   # Idle pool size (≥25; ~25–30% of max_conns is typical)
   max_idle_conns: 30
+  # Max seconds a single DB transaction may stay open (30..86400, default 300)
+  transaction_timeout: 300
 
 # --------------------------
 # Email crawling runtime
@@ -65,7 +67,7 @@ crawler:
   query_timer: 30
   # Concurrent workers; use ≥3 when network discovery is enabled
   workers: 3
-  # Concurrent synchronous page-indexing transactions. Independent of workers and database.max_conns.
+  # Concurrent synchronous page-indexing transactions (0 = unlimited). Independent of workers and database.max_conns.
   indexing_concurrency: 1
   # Per-engine overrides (optional)
   engine: []
